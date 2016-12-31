@@ -5,8 +5,11 @@ from .data_sources import HuzzerSource, CharSplitter, OneHotVecotorizer
 
 
 def one_hot_ascii_pipeline(ttv, string_length=32, use_cache=True, cache_name='one_hot_ascii_pipeline'):
+    """
+    For models which predict the next character in a sequence.
+    """
 
-    data_source = OneHotVecotorizer(CharSplitter(HuzzerSource(), string_length=string_length))
+    data_source = OneHotVecotorizer(CharSplitter(HuzzerSource()), total_string_length=string_length+1)
 
     if use_cache:
         return CachedTTVArrayLikeDataSource(

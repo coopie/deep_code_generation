@@ -12,17 +12,14 @@ class HuzzerSource(DataSource):
 
 class CharSplitter(DataSource):
     """
-    Take some code, and extract `string_length` characters and the proceeding character.
+    Take some code, and pick a random character for the proceeding character. Returns all code up to that character.
     The characters are all reaturned in one string, i.e. the final character of the string is the target value.
 
-    takes urls as '<code_seed>/<splitting_seed>' where both seeds are integers
-
-    TODO: better url parsing for same code with different splitting
+    Takes urls as '<code_seed>/<splitting_seed>' where both seeds are integers.
     """
 
-    def __init__(self, code_ds, string_length=32):
+    def __init__(self, code_ds):
         self.data_source = code_ds
-        self.string_length = string_length
         self.rand = Random()
 
     def _process(self, ident):
@@ -43,25 +40,29 @@ class CharSplitter(DataSource):
         result_char_idx = self.rand.randint(0, len(code)-1)
 
         prior_string = code[:result_char_idx]
-        if len(prior_string) > self.string_length:
-            prior_string = prior_string[-self.string_length:]
-        else:
-            prior_string = prior_string.rjust(self.string_length, ' ')
-
         return prior_string + code[result_char_idx]
 
 
-def OneHotVecotorizer(split_ds):
+def OneHotVecotorizer(split_ds, total_string_length=33):
     """
     Take ascii strings from a CharSplitter like datasource and turns the chars into one-hot vectors of length 128.
     """
     def one_hoterize(data):
+        nonlocal total_string_length  # NOQA
+        data = data[-total_string_length:]
         for x in data:
             assert ord(x) < 128, 'character {} in {} is not ascii'.format(x, data)
 
         one_hots = np.zeros((len(data), 128), np.uint8)
         one_hots[np.arange(len(data)), [ord(c) for c in data]] = 1
 
+        # add padding
+        if one_hots.shape[0] != total_string_length:
+            padding_to_add = total_string_length - one_hots.shape[0]
+            padding = np.zeros((padding_to_add, 128), np.uint8)
+            one_hots = np.concatenate((padding, one_hots))
+
+        assert one_hots.shape == (total_string_length, 128)
         return one_hots
 
     return LambdaDataSource(one_hoterize, split_ds)
