@@ -1,7 +1,7 @@
 from lazychef.data_sources import CachedTTVArrayLikeDataSource, TTVArrayLikeDataSource
 from os.path import join as join_path
 
-from .data_sources import HuzzerSource, CharSplitter, OneHotVecotorizer
+from .data_sources import HuzzerSource, CharSplitter, OneHotVecotorizerASCII
 
 
 def one_hot_ascii_pipeline(ttv, string_length=32, use_cache=True, cache_name='one_hot_ascii_pipeline'):
@@ -9,7 +9,7 @@ def one_hot_ascii_pipeline(ttv, string_length=32, use_cache=True, cache_name='on
     For models which predict the next character in a sequence.
     """
 
-    data_source = OneHotVecotorizer(CharSplitter(HuzzerSource()), total_string_length=string_length+1)
+    data_source = OneHotVecotorizerASCII(CharSplitter(HuzzerSource()), total_string_length=string_length+1)
 
     if use_cache:
         return CachedTTVArrayLikeDataSource(

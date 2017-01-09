@@ -1,5 +1,6 @@
 from lazychef.data_sources import DataSource, LambdaDataSource
 from huzzer.huzz import huzzer
+from huzzer.tokenizing import tokenize
 from random import Random
 import numpy as np
 
@@ -43,7 +44,7 @@ class CharSplitter(DataSource):
         return prior_string + code[result_char_idx]
 
 
-def OneHotVecotorizer(split_ds, total_string_length=33):
+def OneHotVecotorizerASCII(split_ds, total_string_length=33):
     """
     Take ascii strings from a CharSplitter like datasource and turns the chars into one-hot vectors of length 128.
     """
@@ -70,3 +71,41 @@ def OneHotVecotorizer(split_ds, total_string_length=33):
 
 def vec_to_char(vec):
     return chr(np.nonzero(vec)[0][0])
+
+
+class TokenDataSource(DataSource):
+    def __init__(self, huzz_ds: HuzzerSource):
+        self.huzz_ds = huzz_ds
+
+    def _process(self, key):
+        code = self.huzz_ds[key]
+        return [x.type for x in tokenize(code) if x.channel == 0]
+
+
+class OneHotVecotorizer(DataSource):
+    """
+    Get a source of tokens of `alphabet_size` sized alphabet. Turn it into
+    one hot vectors. If max_len is specified, then vectors are padded with
+    empty vectors, and sentences generated longer than `max_len` cause the
+    datasource to get a deteministically random 'other' key.
+    """
+    def __init__(self, ds, alphabet_size, max_len=None):
+        self.ds = ds
+        self.alphabet_size = alphabet_size
+        self.max_len = max_len
+        self.rand = Random()
+
+    def _process(self, key):
+        sentence = self.ds[key]
+        if self.max_len is not None and len(sentence) > self.max_len:
+            self.rand.seed(hash(key))
+            new_key = self.rand.randint(0, 2**30)
+            return self[str(new_key)]
+
+        array_len = self.max_len if self.max_len is not None else len(sentence)
+        arr = np.zeros((array_len, self.alphabet_size), dtype=np.uint8)
+        arr[range(len(sentence)), sentence] = 1
+
+        # all tokens range from 1->53. a zero value represents `nothing`. i.e. padding characters
+        arr[range(len(sentence), len(arr)), 0] = 1
+        return arr

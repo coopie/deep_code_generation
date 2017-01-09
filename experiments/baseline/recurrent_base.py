@@ -82,7 +82,6 @@ def make_ttv(number_of_samples):
     validation_idxs = range(train_size + test_size, number_of_samples)
 
     ttv = {
-        'test': [make_example_uri(x) for x in test_idxs],
         'train': [make_example_uri(x) for x in train_idxs],
         'validation': [make_example_uri(x) for x in validation_idxs]
     }
