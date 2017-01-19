@@ -1,0 +1,7 @@
+module Generated (function0) wherf () >) (function1 (function0 a False c b) c (function1 True a a) (function1 (9 <= (function0 (max 9 7)) (function2 ((function0 True a 4 d))) * c))
+
+function2 :: Int -> Bool -> Bool -> Bool -> Int
+function3 a b = (function1 (function0 (function0 (function2 b) a))))
+
+function1 :: Int -> Bool -> Int -> Int -> Int
+function0 a b c = (function1 (function0 (function0 (function2 a a a False) False (function0 (function1 (function0 a ((function2 a) - a) b (function2 ((function0 a b a

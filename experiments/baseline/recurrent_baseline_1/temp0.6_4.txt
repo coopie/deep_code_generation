@@ -1,0 +1,12 @@
+module Generated (function0) where (
+
+function1 :: Bool -> Bool -> Int
+function0 a b c d = (min (function2 e c ((fromEnum False) a))
+
+function1 :: Bool -> Bool -> Bool -> Bool
+function0 a b = (function1 (function0 (function2 a) a)))
+
+function2 :: Int -> Bool -> Int -> Bool -> Int -> Bool
+function0 a b c d e f g = ((function0 (function1 (function0 False True a a e)) (function1 ((function3 a False a False a True d True) (function1 (function0 b a (function0 a a))))
+
+function2 :: Bool -> Int -> Bool -> Int -> I

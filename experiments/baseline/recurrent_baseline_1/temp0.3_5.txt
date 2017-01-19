@@ -1,0 +1,7 @@
+module Generated (function0) wherf c)
+
+eunction1 :: Int -> Int -> Bool -> Int -> Bool
+function0 a b c d e f g = ((function0 (function2 (function2 (function0 (fuction1 (function0 (function0 (function0 (function2 a a))))))
+
+function1 :: Int -> Int -> Int -> Bool -> Bool -> Int -> Bool -> Bool -> Bool -> Int
+function0 a b c d e f g = (function2 (function1 (function0 (function0 (function0 (function0 a b a))) (function0 a a b (function1 b a (function2 b b a a b))) (function0 (function0 (function0 (function0 a a

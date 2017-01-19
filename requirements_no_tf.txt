@@ -2,7 +2,7 @@ antlr4-python3-runtime==4.6
 docopt==0.6.2
 h5py==2.6.0
 huzzer==0.1.0
-lazychef==0.0.1
+lazychef==0.0.2
 nose==1.3.7
 numpy==1.11.2
 protobuf==3.1.0
