@@ -1,0 +1,10 @@
+module Generated (function0,function1,function2) where 
+
+function0 :: Int -> Int
+function0 a = (function0 (function1 ((max 2 4) <= a)))
+
+function1 :: Bool -> Int
+function1 a = ((function1 a) * (2 + (function1 ((fromEnum a) < (function0 1)))))
+
+function2 :: Bool -> Int -> Bool
+function2 a b = a

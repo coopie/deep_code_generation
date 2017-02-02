@@ -6,7 +6,7 @@ import numpy as np
 import logging
 from pipelines.one_hot_token import one_hot_token_pipeline
 
-from models import build_simple_network, build_queue
+from models import build_simple_network, build_queue, build_conv1
 
 import tensorflow as tf
 from tensorflow.python.ops import variables as tf_variables
@@ -17,13 +17,15 @@ slim = tf.contrib.slim
 
 
 def run_experiment(option):
-    BATCH_SIZE=128
+    BATCH_SIZE = 128
+    X_SHAPE = (128, 54)
 
     # set up pipeline
     print('Setting up data pipeline')
     data_pipeline = one_hot_token_pipeline(
         use_cache=False,
-        for_cnn=False
+        for_cnn=False,
+        length=128
     )
 
     # Function to pass into queue
@@ -44,11 +46,13 @@ def run_experiment(option):
         batch_index += 1
         return batch
 
-    # use the queue for training
-    queue = build_queue(get_batch, batch_size, x_shape)
+    # use the queue for trai n ing
+    queue = build_queue(get_batch, BATCH_SIZE, X_SHAPE)
     x = queue.dequeue(name='encoder_input')
     if option == 'simple':
         tensor_names = build_simple_network(x, BATCH_SIZE, (256, 54))
+    elif option == 'conv1':
+        tensor_names = build_conv1(x, (128, 54))
     else:
         print('INVALID OPTION')
         exit(1)
@@ -79,7 +83,7 @@ if __name__ == '__main__':
         level=logging.INFO
     )
 
-    options = {'simple'}
+    options = {'simple', 'conv1'}
 
     args = argv[1:]
     assert len(args) == 1, 'You must provide one argument'

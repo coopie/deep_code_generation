@@ -1,2 +1,0 @@
-
- module False h where function0 4 Int > < c b :: && :: && :: mod < g <= Bool :: && :: :: 8 min :: max ) 8 b a 8 mod function2 e + -> False True False 6 = 2 function0 || == = module || fromEnum 5 9 ( function3 Bool g                                                                                                                                                                                                     

@@ -1,4 +1,9 @@
+"""
+Make 5 random autoencoded examples
+"""
 import project_context  # NOQA
+from tqdm import trange
+from scipy.misc import imsave
 import numpy as np
 from random import randint
 from huzzer.tokenizing import TOKEN_MAP
@@ -21,6 +26,7 @@ NAMES = {
     'train_on_batch': 'train_on_batch:0'
 }
 
+BASEDIR = 'experiments/VAE_baseline/'
 
 def autoencode():
     huzz = HuzzerSource()
@@ -30,7 +36,6 @@ def autoencode():
         54,
         256
     )
-
 
     x_shape = (256, 54)
     latent_dim = 16
@@ -72,23 +77,31 @@ def autoencode():
                 }
             )
 
-        latent_reps = a()
-        print('LATENT REPRESENTATION:')
-        print(latent_reps)
-        recon = g(latent_reps)[0]
+        for i in trange(5):
 
-        tokens = np.argmax(recon, axis=-1)
+            key = str(randint(0, 100000000))
+            code = huzz[key]
+            with open(BASEDIR + 'simple_examples/auto_{}_input.hs'.format(i), 'w') as f:
+                f.write(code)
 
-        def token_to_string(t):
-            if t == 0:
-                return ''
-            return TOKEN_MAP[t-1]
+            example_data = data_pipeline[key]
+            imsave(BASEDIR + 'simple_examples/auto_{}_input.png'.format(i), example_data.astype(np.float32).T)
 
-        text = ' '.join([token_to_string(t) for t in tokens])
-        print('REGENERATED CODE:')
-        print(text)
+            latent_reps = a(example_data)
+            recon = g(latent_reps)[0]
 
+            imsave(BASEDIR + 'simple_examples/auto_{}_output.png'.format(i), recon.T)
 
+            tokens = np.argmax(recon, axis=-1)
+
+            def token_to_string(t):
+                if t == 0:
+                    return ''
+                return TOKEN_MAP[t-1]
+
+            text = ' '.join([token_to_string(t) for t in tokens])
+            with open(BASEDIR + 'simple_examples/auto_{}_output.hs'.format(i), 'w') as f:
+                f.write(text)
 
 
 if __name__ == '__main__':

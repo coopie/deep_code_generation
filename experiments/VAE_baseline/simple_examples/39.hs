@@ -1,3 +1,0 @@
-
- module False h where function0 where function1 where function2 ( Generated ) h , Bool :: Bool :: && :: && :: && :: Bool :: 1 :: 6 -> d function2 0 /= e function2 div f 8 False b 8 e d function2 not e fromEnum , 2 d * where 0 * = 4 < = 4 fromEnum - 5 True function2 :: 5 max not 5 ) f || max where 4 || 3 e False 9 5 mod ( b a 5 5 ( 9 :: module :: ( mod False module function1 ( 6 (      ( function3  d       - * :: = || ( && Bool * -> -> module False ( ( = = function2 ) 3 False - a * f d 5 , f 5 False Int function2 :: function2 * , 
- && -> a - + a ( function2 3                                                                                            

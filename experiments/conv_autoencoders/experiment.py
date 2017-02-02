@@ -43,6 +43,8 @@ def run_experiment(option):
 
     if option == 'simple':
         model, encoder, generator = make_simple_cnn(BATCH_SIZE)
+    elif option == 'conv1':
+        model, encoder, generator = make_cnn_1(BATCH_SIZE)
     else:
         print('INVALID OPTION')
         exit(1)
@@ -101,7 +103,7 @@ def make_simple_cnn(batch_size):
     h_decoded = decoder_h(z)
     x_decoded_mean = decoder_mean(h_decoded)
 
-    decoded_reshaped = Reshape((256, 54))
+    decoded_reshaped = Reshape((256, 54))(x_decoded_mean)
 
     # end-to-end autoencoder
     vae = Model(x, decoded_reshaped)

@@ -1,8 +1,8 @@
-from lazychef.keras_generators import KerasGenerator
+from lazychef.generators import Generator
 import numpy as np
 
 
-class SequenceGenerator(KerasGenerator):
+class SequenceGenerator(Generator):
     def __init__(self, data_source, batch_size=128):
         super().__init__(data_source, batch_size)
         self.shuffle_idxs = np.arange(len(data_source))

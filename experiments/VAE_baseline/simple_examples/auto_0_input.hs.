@@ -1,0 +1,7 @@
+module Generated (function0,function1) where 
+
+function0 :: Int -> Bool -> Int -> Bool -> Int
+function0 a b c d = (function0 0 (5 < (function0 c (function1 False d) c False)) c d)
+
+function1 :: Bool -> Bool -> Bool
+function1 a b = (function1 ((6 /= 9) || False) b)

@@ -24,8 +24,8 @@ def generate_code():
     saver = tf.train.Saver()
     with tf.Session() as sess:
 
-        new_saver = tf.train.import_meta_graph('simple/model.ckpt-2871.meta')
-        new_saver.restore(sess, tf.train.latest_checkpoint('simple'))
+        # new_saver = tf.train.import_meta_graph('experiments/VAE_baseline/simple/model.ckpt-2871.meta')
+        saver.restore(sess, tf.train.latest_checkpoint('experiments/VAE_baseline/simple'))
 
         def g(latent_rep=None):
             if latent_rep is None:
@@ -37,7 +37,11 @@ def generate_code():
                         }
                     )
 
-
+        # # latent_rep = np.zeros(16, dtype='float32')
+        # latent_rep = np.array([-0.18552721,  0.17082049, 0.1876981, -0.17597072, -0.18672395,
+        #  0.20680845, -0.18589398, -0.15539576, -0.17138806, -0.16285755,
+        #  0.19973838, -0.20951441, -0.18218575,  0.15672302,  0.32241789,
+        #  0.22256292], dtype='float32')
         generated = g()[0]
         tokens = np.argmax(generated, axis=-1)
 

@@ -1,0 +1,7 @@
+module Generated (function0,function1) where 
+
+function0 :: Bool -> Bool -> Bool -> Bool -> Int -> Int -> Int
+function0 a b c d e f = (function0 c True (f /= e) d (function0 b (5 >= e) b a e f) e)
+
+function1 :: Int -> Bool -> Int -> Bool -> Bool -> Int -> Int
+function1 a b c d e f = (function0 False (not True) False d (function0 d e d (c > 1) (fromEnum d) c) a)

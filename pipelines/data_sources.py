@@ -1,17 +1,17 @@
-from lazychef.data_sources import DataSource, LambdaDataSource
+from lazychef.data_sources import Datasource, LambdaDatasource
 from huzzer.huzz import huzzer
 from huzzer.tokenizing import tokenize
 from random import Random
 import numpy as np
 
 
-class HuzzerSource(DataSource):
+class HuzzerSource(Datasource):
     def _process(self, ident):
         assert ident.isdigit(), 'huzzer got {}, when it should take a number'.format(ident)
         return huzzer(int(ident))
 
 
-class CharSplitter(DataSource):
+class CharSplitter(Datasource):
     """
     Take some code, and pick a random character for the proceeding character. Returns all code up to that character.
     The characters are all reaturned in one string, i.e. the final character of the string is the target value.
@@ -46,7 +46,7 @@ class CharSplitter(DataSource):
 
 def OneHotVecotorizerASCII(split_ds, total_string_length=33):
     """
-    Take ascii strings from a CharSplitter like datasource and turns the chars into one-hot vectors of length 128.
+    Take ascii strings from a CharSplitter like Datasource and turns the chars into one-hot vectors of length 128.
     """
     def one_hoterize(data):
         nonlocal total_string_length  # NOQA
@@ -66,14 +66,14 @@ def OneHotVecotorizerASCII(split_ds, total_string_length=33):
         assert one_hots.shape == (total_string_length, 128)
         return one_hots
 
-    return LambdaDataSource(one_hoterize, split_ds)
+    return LambdaDatasource(one_hoterize, split_ds)
 
 
 def vec_to_char(vec):
     return chr(np.nonzero(vec)[0][0])
 
 
-class TokenDataSource(DataSource):
+class TokenDatasource(Datasource):
     def __init__(self, huzz_ds: HuzzerSource):
         self.huzz_ds = huzz_ds
 
@@ -82,12 +82,12 @@ class TokenDataSource(DataSource):
         return [x.type for x in tokenize(code) if x.channel == 0]
 
 
-class OneHotVecotorizer(DataSource):
+class OneHotVecotorizer(Datasource):
     """
     Get a source of tokens of `alphabet_size` sized alphabet. Turn it into
     one hot vectors. If max_len is specified, then vectors are padded with
     empty vectors, and sentences generated longer than `max_len` cause the
-    datasource to get a deteministically random 'other' key.
+    Datasource to get a deteministically random 'other' key.
     """
     def __init__(self, ds, alphabet_size, max_len=None):
         self.ds = ds

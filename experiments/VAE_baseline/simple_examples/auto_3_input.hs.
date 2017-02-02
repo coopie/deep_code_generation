@@ -1,0 +1,7 @@
+module Generated (function0,function1) where 
+
+function0 :: Int -> Int -> Int -> Bool -> Int -> Int
+function0 a b c d e = (fromEnum ((function0 7 b b d (7 + b)) /= (div a a)))
+
+function1 :: Int -> Bool -> Bool -> Bool -> Bool -> Int -> Int
+function1 a b c d e f = (function0 (1 + f) a a d a)
