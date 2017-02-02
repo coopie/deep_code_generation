@@ -23,7 +23,6 @@ def run_experiment(option):
     # set up pipeline
     print('Setting up data pipeline')
     data_pipeline = one_hot_token_pipeline(
-        use_cache=False,
         for_cnn=False,
         length=128
     )
