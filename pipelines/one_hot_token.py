@@ -5,9 +5,7 @@ from .data_sources import HuzzerSource, TokenDatasource, OneHotVecotorizer
 
 def one_hot_token_pipeline(
     ttv=None,
-    use_cache=False,
     for_cnn=True,
-    cache_name='one_hot_token_pipeline',
     length=256
 ):
     """
@@ -28,4 +26,4 @@ def one_hot_token_pipeline(
 def reshape_for_cnn(ds):
     def f(x):
         return np.reshape(x, x.shape + (1,))
-    return LambdaDatasource(f, ds)
+    return LambdaDatasource(ds, f)
