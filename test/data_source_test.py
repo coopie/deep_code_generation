@@ -1,7 +1,7 @@
-
+import project_context  # NOQA
 import numpy as np
 
-from pipelines.data_sources import HuzzerSource, CharSplitter, OneHotVecotorizerASCII, OneHotVecotorizer, TokenDataSource
+from pipelines.data_sources import HuzzerSource, CharSplitter, OneHotVecotorizerASCII, OneHotVecotorizer, TokenDatasource
 
 
 def test_huzzer():
@@ -40,7 +40,7 @@ def test_one_hot_ascii():
 
 def test_one_hot():
     expected_shape = (256, 54)
-    one_hotter = OneHotVecotorizer(TokenDataSource(HuzzerSource()), 54, 256)
+    one_hotter = OneHotVecotorizer(TokenDatasource(HuzzerSource()), 54, 256)
 
     # check deteminism and dimensions
     for i in range(20, 60):

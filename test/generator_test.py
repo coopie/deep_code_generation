@@ -1,7 +1,9 @@
+import project_context  # NOQA
 import numpy as np
-from lazychef.data_sources import DataSource
+from lazychef.data_sources import Datasource
 
 from pipelines.generators import SequenceGenerator
+
 
 def test_sequence_gen():
     sg = SequenceGenerator(DummyDataSource(), batch_size=2)
@@ -47,7 +49,8 @@ data = np.array([
     [c, c, c, c]
 ])
 
-class DummyDataSource(DataSource):
+
+class DummyDataSource(Datasource):
     def _process(self, key):
         return data[key]
 

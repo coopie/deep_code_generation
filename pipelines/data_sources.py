@@ -66,7 +66,7 @@ def OneHotVecotorizerASCII(split_ds, total_string_length=33):
         assert one_hots.shape == (total_string_length, 128)
         return one_hots
 
-    return LambdaDatasource(one_hoterize, split_ds)
+    return LambdaDatasource(split_ds, one_hoterize)
 
 
 def vec_to_char(vec):
@@ -100,6 +100,7 @@ class OneHotVecotorizer(Datasource):
         if self.max_len is not None and len(sentence) > self.max_len:
             self.rand.seed(hash(key))
             new_key = self.rand.randint(0, 2**30)
+            print('{} is too long!, getting {}'.format(key, new_key))
             return self[str(new_key)]
 
         array_len = self.max_len if self.max_len is not None else len(sentence)
