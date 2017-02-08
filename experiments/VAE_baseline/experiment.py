@@ -6,7 +6,7 @@ import numpy as np
 import logging
 from pipelines.one_hot_token import one_hot_token_pipeline
 
-from models import build_simple_network, build_queue, build_conv1, build_conv2
+from models import build_simple_network, build_queue, build_conv1, build_conv2, build_conv3
 
 import tensorflow as tf
 from tensorflow.python.ops import variables as tf_variables
@@ -55,6 +55,8 @@ def run_experiment(option):
         tensor_names = build_conv1(x, (128, 54))
     elif option == 'conv2':
         tensor_names = build_conv2(x, (128, 54), 32)
+    elif option == 'conv3':
+        tensor_names = build_conv3(x, (128, 54), 64)
     else:
         print('INVALID OPTION')
         exit(1)
@@ -85,7 +87,7 @@ if __name__ == '__main__':
         level=logging.INFO
     )
 
-    options = {'simple', 'conv1', 'conv2'}
+    options = {'simple', 'conv1', 'conv2', 'conv3'}
 
     args = argv[1:]
     assert len(args) == 1, 'You must provide one argument'
