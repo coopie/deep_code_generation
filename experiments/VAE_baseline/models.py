@@ -210,7 +210,7 @@ def build_conv3(x, x_shape, latent_dim=64, epsilon_std=0.01):
     Essentially builds the same model as conv2 with a few exceptions:
         * the latent dim is higher
         * the KL loss is also limited to a smaller value - 0.0025. taken from looking at
-            the loss of the conv1 experiments
+            the loss of the conv2 experiments
     """
     with conv_arg_scope():
         z_mus, z_log_sigmas = build_conv1_encoder(x, latent_dim)
@@ -221,6 +221,26 @@ def build_conv3(x, x_shape, latent_dim=64, epsilon_std=0.01):
         x_decoded_mean_reshaped_softmaxed = tf.nn.softmax(x_decoded_mean_reshaped, dim=-1)
         print('output_shape: {}'.format(x_decoded_mean_reshaped_softmaxed.get_shape()))
         loss = vae_loss(x, x_decoded_mean_reshaped_softmaxed, z_mus, z_log_sigmas, kl_limit=0.0025)
+        optimizer = tf.train.AdamOptimizer()
+        tf.identity(slim.learning.create_train_op(loss, optimizer), name='train_on_batch')
+    return NAMES
+
+
+def build_conv4(x, x_shape, latent_dim=64, epsilon_std=0.01):
+    """
+    Essentially builds the same model as conv3 with a few exceptions:
+        * the KL loss is also limited to a larger value - 0.01. taken from looking at
+            the loss of the conv3 experiments
+    """
+    with conv_arg_scope():
+        z_mus, z_log_sigmas = build_conv1_encoder(x, latent_dim)
+
+        z_resampled = build_resampling(z_mus, z_log_sigmas, epsilon_std)
+
+        x_decoded_mean_reshaped = build_conv1_decoder(z_resampled, x_shape)
+        x_decoded_mean_reshaped_softmaxed = tf.nn.softmax(x_decoded_mean_reshaped, dim=-1)
+        print('output_shape: {}'.format(x_decoded_mean_reshaped_softmaxed.get_shape()))
+        loss = vae_loss(x, x_decoded_mean_reshaped_softmaxed, z_mus, z_log_sigmas, kl_limit=0.01)
         optimizer = tf.train.AdamOptimizer()
         tf.identity(slim.learning.create_train_op(loss, optimizer), name='train_on_batch')
     return NAMES

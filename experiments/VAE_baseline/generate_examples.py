@@ -32,6 +32,16 @@ def generate_code(option):
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple()
     elif option == 'conv1':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv1()
+    elif option == 'conv2':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv2()
+    elif option == 'conv3':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv3()
+    else:
+        print('INVALID OPTION')
+        exit()
+
+    import code  # NOQA
+    code.interact(local=locals())
 
     saver = tf.train.Saver()
     with tf.Session() as sess:
@@ -64,10 +74,6 @@ def generate_code(option):
             )
             return encoded, example_data
 
-        # mkdir_p(BASEDIR + '{}_examples'.format(option))
-        # mkdir_p(BASEDIR + '{}_examples/{}'.format(option))
-        # mkdir_p(BASEDIR + '{}_examples/{}'.format(option))
-
         examples_dir = BASEDIR + '{}_examples'.format(option)
         latent_sampling_dir = examples_dir + '/latent_sampling/'
         autoencoded_dir = examples_dir + '/autoencoded/'
@@ -79,14 +85,13 @@ def generate_code(option):
         mkdir_p(markov_generating_dir)
 
         for i in trange(5):
-            example_input = data_pipeline[str(i)]
+            example_input = data_pipeline[str(i)].astype('float32')
             input_text = example_to_code(example_input)
 
             latent_rep, _ = e(example_input)
 
             reconstrcted_tokens, _ = g(latent_rep)
             autoencoded_text = example_to_code(reconstrcted_tokens)
-
             imsave(autoencoded_dir + '{}_input.png'.format(i), example_input.T)
             imsave(autoencoded_dir + '{}_output.png'.format(i), reconstrcted_tokens.T)
 
@@ -95,16 +100,6 @@ def generate_code(option):
 
             with open(autoencoded_dir + '{}_output.hs'.format(i), 'w') as f:
                 f.write(autoencoded_text)
-
-
-            # generated = g()
-            #
-            # imsave(BASEDIR + '{}_examples/{}.png'.format(option, i), generated.T)
-            #
-            # tokens = np.argmax(generated, axis=-1)
-            # text = ' '.join([token_to_string(t) for t in tokens])
-            # with open(BASEDIR + '{}_examples/{}.hs'.format(option, i), 'w') as f:
-            #     f.write(text)
 
 
 def example_to_code(example):
@@ -163,6 +158,50 @@ def make_conv1():
     return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
 
 
+def make_conv2():
+    latent_dim = 32
+    x_shape = (128, 54)
+    huzz = HuzzerSource()
+    data_pipeline = OneHotVecotorizer(
+        TokenDatasource(huzz),
+        x_shape[1],
+        x_shape[0]
+    )
+
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    with conv_arg_scope():
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+        encoder_output, _ = build_conv1_encoder(encoder_input, latent_dim)
+
+        decoder_output = build_conv1_decoder(decoder_input, x_shape)
+        decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+        decoder_output = tf.reshape(decoder_output, x_shape)
+
+    return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_conv3():
+    latent_dim = 64
+    x_shape = (128, 54)
+    huzz = HuzzerSource()
+    data_pipeline = OneHotVecotorizer(
+        TokenDatasource(huzz),
+        x_shape[1],
+        x_shape[0]
+    )
+
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    with conv_arg_scope():
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+        encoder_output, _ = build_conv1_encoder(encoder_input, latent_dim)
+
+        decoder_output = build_conv1_decoder(decoder_input, x_shape)
+        decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+        decoder_output = tf.reshape(decoder_output, x_shape)
+
+    return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
 # echoes the behaviour of mkdir -p
 # from http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
 def mkdir_p(path):
@@ -173,6 +212,7 @@ def mkdir_p(path):
             pass
         else:
             raise
+
 
 if __name__ == '__main__':
     args = argv[1:]

@@ -48,3 +48,17 @@ def test_one_hot():
         y = one_hotter['{0}'.format(i)]
         assert np.array_equal(x, y), 'Accessing same element produces different outcome.'
         assert x.shape == expected_shape, 'Incorrect shape for output.'
+
+
+def test_one_hot1():
+    expected_shape = (128, 54)
+    one_hotter = OneHotVecotorizer(
+        TokenDatasource(HuzzerSource()), expected_shape[1], expected_shape[0]
+    )
+
+    # check deteminism and dimensions
+    for i in range(1, 60):
+        x = one_hotter['{0}'.format(i)]
+        y = one_hotter['{0}'.format(i)]
+        assert np.array_equal(x, y), 'Accessing same element produces different outcome.'
+        assert x.shape == expected_shape, 'Incorrect shape for output.'
