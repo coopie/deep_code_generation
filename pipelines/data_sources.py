@@ -3,6 +3,7 @@ from huzzer.huzz import huzzer
 from huzzer.tokenizing import tokenize
 from random import Random
 import numpy as np
+import logging
 
 
 class HuzzerSource(Datasource):
@@ -100,7 +101,7 @@ class OneHotVecotorizer(Datasource):
         if self.max_len is not None and len(sentence) > self.max_len:
             self.rand.seed(hash(key))
             new_key = self.rand.randint(0, 2**30)
-            print('{} is too long!, getting {}'.format(key, new_key))
+            logging.debug('{} is too long!, getting {}'.format(key, new_key))
             return self[str(new_key)]
 
         array_len = self.max_len if self.max_len is not None else len(sentence)

@@ -6,7 +6,7 @@ import numpy as np
 import logging
 from pipelines.one_hot_token import one_hot_token_pipeline
 
-from models import build_simple_network, build_queue, build_conv1
+from models import build_simple_network, build_queue, build_conv1, build_conv2
 
 import tensorflow as tf
 from tensorflow.python.ops import variables as tf_variables
@@ -49,9 +49,12 @@ def run_experiment(option):
     queue = build_queue(get_batch, BATCH_SIZE, X_SHAPE)
     x = queue.dequeue(name='encoder_input')
     if option == 'simple':
+        print('this no longer works: - a small refactor would work')
         tensor_names = build_simple_network(x, BATCH_SIZE, (256, 54))
     elif option == 'conv1':
         tensor_names = build_conv1(x, (128, 54))
+    elif option == 'conv2':
+        tensor_names = build_conv2(x, (128, 54), 32)
     else:
         print('INVALID OPTION')
         exit(1)
@@ -82,7 +85,7 @@ if __name__ == '__main__':
         level=logging.INFO
     )
 
-    options = {'simple', 'conv1'}
+    options = {'simple', 'conv1', 'conv2'}
 
     args = argv[1:]
     assert len(args) == 1, 'You must provide one argument'
