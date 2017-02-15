@@ -1,5 +1,6 @@
 import project_context  # NOQA
-from model_utils.loss_functions import vae_loss
+from model_utils.loss_functions import vae_loss, vae_cross_entropy_loss
+from model_utils.ops import vae_resampling
 
 import tensorflow as tf
 from tensorflow.python.ops import data_flow_ops
@@ -64,6 +65,37 @@ def build_simple_network(x, x_shape, latent_dim=16, epsilon_std=0.01):
         return total_loss
 
     loss = vae_loss(x, x_decoded_mean_reshaped)
+
+    optimizer = tf.train.AdamOptimizer()
+
+    tf.identity(slim.learning.create_train_op(loss, optimizer), name='train_on_batch')
+
+    return NAMES
+
+
+def build_simple_network2(x, x_shape, latent_dim, kl_limit=0.1, epsilon_std=0.01):
+    """
+    TODO: what this is - cross entropy + vae limie
+    """
+    x_flat = slim.flatten(x)
+
+    mus = slim.fully_connected(
+        x_flat, latent_dim, scope='encoder_output', activation_fn=tf.tanh
+    )
+    log_sigmas = slim.fully_connected(
+        x_flat, latent_dim, scope='encoder_sigmas', activation_fn=tf.tanh
+    )
+
+    z_resampled = tf.identity(
+        vae_resampling(mus, log_sigmas, epsilon_std),
+        name='decoder_input'
+    )
+
+    x_decoded_mean_reshaped = build_decoder(z_resampled, x_shape, activation=tf.nn.relu6)
+
+    loss = vae_cross_entropy_loss(
+        x, x_decoded_mean_reshaped, mus, log_sigmas, kl_limit=kl_limit
+    )
 
     optimizer = tf.train.AdamOptimizer()
 
@@ -246,6 +278,76 @@ def build_conv4(x, x_shape, latent_dim=64, epsilon_std=0.01):
     return NAMES
 
 
+def build_special_conv(x, x_shape, latent_dim, epsilon_std=0.01):
+    """
+    TODO: explain what makes this so special.
+    """
+    with conv_arg_scope():
+        z_mus, z_log_sigmas = build_special_conv_encoder(x, latent_dim)
+
+        z_resampled = build_resampling(z_mus, z_log_sigmas, epsilon_std)
+
+        x_decoded_mean = build_special_conv_decoder(z_resampled, x_shape)
+        loss = vae_cross_entropy_loss(x, x_decoded_mean, z_mus, z_log_sigmas, kl_limit=0.1)
+        optimizer = tf.train.AdamOptimizer()
+        tf.identity(slim.learning.create_train_op(loss, optimizer), name='train_on_batch')
+    return NAMES
+
+
+def build_special_conv_encoder(x, latent_dim):
+    print('building encoder')
+    x_conv = tf.expand_dims(x, -1)
+    print('input: {}'.format(x_conv.get_shape()))
+
+    net = layers.conv2d(x_conv, 64, (1, 54), padding='VALID')
+    print('conv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d(net, 64, (6, 1), stride=4)
+    print('conv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d(net, 128, (6, 1), stride=4)
+    print('conv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d(net, 128, (4, 1), stride=2)
+    print('conv: {}'.format(net.get_shape()))
+
+    z_mus = layers.flatten(
+        layers.conv2d(net, latent_dim, (4, 1), stride=2, padding='VALID')
+    )
+
+    z_log_sigmas = layers.flatten(
+        layers.conv2d(net, latent_dim, (4, 1), stride=2, padding='VALID')
+    )
+    return z_mus, z_log_sigmas
+
+
+def build_special_conv_decoder(z_resampled, x_shape):
+    print('decoder_structure')
+    net = tf.expand_dims(z_resampled, 1)
+    net = tf.expand_dims(net, 1)
+    print('expanded latent rep: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(net, 128, (4, 1), padding='VALID')
+    print('deconv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(net, 128, (4, 1), stride=(2, 1))
+    print('deconv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(net, 64, (6, 1), stride=(4, 1))
+    print('deconv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(net, 64, (6, 1), stride=(4, 1))
+    print('deconv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(net, 1, (1, 54), stride=(1, 1), padding='VALID', activation_fn=tf.nn.relu6)
+    print('deconv: {}'.format(net.get_shape()))
+
+    x_decoded_mean = tf.squeeze(net, -1)
+    print('final shape: {}'.format(x_decoded_mean.get_shape()))
+
+    return x_decoded_mean
+
+
 def build_resampling(z_mus, z_log_sigmas, epsilon_std):
     def sampling(z_mean, z_log_sigma):
         epsilon = tf.random_normal(
@@ -258,15 +360,14 @@ def build_resampling(z_mus, z_log_sigmas, epsilon_std):
     return z_resampled
 
 
-def build_decoder(z_resampled, x_shape):
+def build_decoder(z_resampled, x_shape, activation=tf.sigmoid):
     x_decoded_mean = slim.fully_connected(
         z_resampled,
         x_shape[0] * x_shape[1],
         scope='x_decoded_mean',
-        activation_fn=tf.sigmoid
+        activation_fn=activation
     )
     x_decoded_mean_reshaped = tf.reshape(
-        # x_decoded_mean, tf.shape(x), name='decoder_output'
         x_decoded_mean, [-1, *x_shape], name='decoder_output'
     )
     return x_decoded_mean_reshaped

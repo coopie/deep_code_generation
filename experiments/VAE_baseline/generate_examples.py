@@ -36,12 +36,15 @@ def generate_code(option):
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv2()
     elif option == 'conv3':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv3()
+    elif option == 'conv4':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv4()
+    elif option == 'simple_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss()
+    elif option == 'simple_double_latent_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(64)
     else:
         print('INVALID OPTION')
         exit()
-
-    import code  # NOQA
-    code.interact(local=locals())
 
     saver = tf.train.Saver()
     with tf.Session() as sess:
@@ -132,7 +135,7 @@ def make_simple():
     encoder_output = tf.identity(z, 'this_is_output')
 
     decoder_input = tf.placeholder(tf.float32, shape=(1, 16), name='decoder_input')
-    decoder_output = build_decoder(decoder_input, (256, 54))['decoder_input']
+    decoder_output = build_decoder(decoder_input, (256, 54))
     latent_dim = 16
     return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
 
@@ -200,6 +203,51 @@ def make_conv3():
         decoder_output = tf.reshape(decoder_output, x_shape)
 
     return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_conv4():
+    latent_dim = 64
+    x_shape = (128, 54)
+    huzz = HuzzerSource()
+    data_pipeline = OneHotVecotorizer(
+        TokenDatasource(huzz),
+        x_shape[1],
+        x_shape[0]
+    )
+
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    with conv_arg_scope():
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+        encoder_output, _ = build_conv1_encoder(encoder_input, latent_dim)
+
+        decoder_output = build_conv1_decoder(decoder_input, x_shape)
+        decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+        decoder_output = tf.reshape(decoder_output, x_shape)
+
+    return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_simple_sss(latent_dim=32):
+    x_shape = (128, 54)
+    huzz = HuzzerSource()
+    data_pipeline = OneHotVecotorizer(
+        TokenDatasource(huzz),
+        x_shape[1],
+        x_shape[0]
+    )
+
+    encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+    x_flat = slim.flatten(encoder_input)
+    z = slim.fully_connected(
+        x_flat, latent_dim, scope='encoder_output', activation_fn=tf.tanh
+    )
+
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    decoder_output = build_decoder(
+        decoder_input, x_shape, activation=tf.nn.relu6
+    )
+    decoder_output = tf.reshape(decoder_output, x_shape)
+    return data_pipeline, encoder_input, z, decoder_input, decoder_output
 
 
 # echoes the behaviour of mkdir -p

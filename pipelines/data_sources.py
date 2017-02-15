@@ -99,7 +99,7 @@ class OneHotVecotorizer(Datasource):
     def _process(self, key):
         sentence = self.ds[key]
         if self.max_len is not None and len(sentence) > self.max_len:
-            self.rand.seed(hash(key))
+            self.rand.seed(int(key))
             new_key = self.rand.randint(0, 2**30)
             logging.debug('{} is too long!, getting {}'.format(key, new_key))
             return self[str(new_key)]

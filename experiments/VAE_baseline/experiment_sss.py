@@ -1,18 +1,20 @@
+"""
+experiments similar to those in experiment.py, but with limited dataset
+"""
+
+
 import project_context  #  NOQA
 
 from sys import argv
 import numpy as np
 
 import logging
-from pipelines.one_hot_token import one_hot_token_pipeline
+from pipelines.one_hot_token import one_hot_token_dataset
 from model_utils.queues import build_single_output_queue
 
 from models import (
-    build_simple_network,
-    build_conv1,
-    build_conv2,
-    build_conv3,
-    build_conv4
+    build_simple_network2,
+    build_special_conv,
 )
 
 import tensorflow as tf
@@ -29,48 +31,31 @@ def run_experiment(option):
 
     # set up pipeline
     print('Setting up data pipeline')
-    data_pipeline = one_hot_token_pipeline(
-        for_cnn=False,
+    NUMBER_BATCHES = 500
+    dataset = one_hot_token_dataset(
+        BATCH_SIZE,
+        NUMBER_BATCHES,
         length=128
     )
 
-    # Function to pass into queue
-    batch_index = 0
     def get_batch():
-        nonlocal batch_index
+        return dataset()[0]
 
-        if batch_index % 100 == 0:
-            logging.info('{} examples used'.format(batch_index * BATCH_SIZE))
-        code_seeds = [
-            str(i) for i in range(
-                batch_index * BATCH_SIZE,
-                (batch_index + 1) * BATCH_SIZE
-            )
-        ]
-
-        batch = np.array(data_pipeline[code_seeds])
-        batch_index += 1
-        return batch
 
     # use the queue for training
     queue = build_single_output_queue(get_batch, (BATCH_SIZE, *X_SHAPE))
     x = queue.dequeue(name='encoder_input')
     if option == 'simple':
-        print('this no longer works: - a small refactor would work')
-        tensor_names = build_simple_network(x, BATCH_SIZE, (256, 54))
-    elif option == 'conv1':
-        tensor_names = build_conv1(x, (128, 54))
-    elif option == 'conv2':
-        tensor_names = build_conv2(x, (128, 54), 32)
-    elif option == 'conv3':
-        tensor_names = build_conv3(x, (128, 54), 64)
-    elif option == 'conv4':
-        tensor_names = build_conv4(x, (128, 54), 64)
+        tensor_names = build_simple_network2(x, X_SHAPE, 32)
+    if option == 'simple_double_latent':
+        tensor_names = build_simple_network2(x, X_SHAPE, 64)
+    if option == 'conv_special':
+        tensor_names = build_special_conv(x, X_SHAPE, 64)
     else:
         print('INVALID OPTION')
         exit(1)
 
-    logdir = 'experiments/VAE_baseline/{}'.format(option)
+    logdir = 'experiments/VAE_baseline/{}_sss'.format(option)
 
     sv = Supervisor(
         logdir=logdir,
@@ -96,12 +81,9 @@ if __name__ == '__main__':
         level=logging.INFO
     )
 
-    options = {'simple', 'conv1', 'conv2', 'conv3', 'conv4'}
-
     args = argv[1:]
     assert len(args) == 1, 'You must provide one argument'
     option = args[0]
-    assert option in options, 'options can be {}'.format(options)
 
     with tf.Graph().as_default():
         run_experiment(option)
