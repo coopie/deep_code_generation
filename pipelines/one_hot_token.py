@@ -1,5 +1,5 @@
 import numpy as np
-from lazychef.data_sources import LambdaDatasource, ArrayDatasource
+from lazychef.data_sources import LambdaDatasource, ArrayDatasource, CachedArrayDataSource
 from lazychef.generators import DatasetGenerator, ShuffleDatasetCallback, LogEpochEndCallback
 from .data_sources import HuzzerSource, TokenDatasource, OneHotVecotorizer
 
@@ -26,10 +26,14 @@ def one_hot_token_pipeline(
 def one_hot_token_dataset(
     batch_size,
     number_of_batches,
-    length=128
+    length=128,
+    cache_path=None
 ):
     data_source = one_hot_token_pipeline(for_cnn=False, length=length)
     fs_data_source = FixedSizeTokenSource(data_source, batch_size * number_of_batches)
+
+    if cache_path is not None:
+        fs_data_source = CachedArrayDataSource(fs_data_source, cache_path)
 
     callbacks = [ShuffleDatasetCallback(seed=1337), LogEpochEndCallback()]
 

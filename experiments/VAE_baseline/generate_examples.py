@@ -20,14 +20,23 @@ from tensorflow.contrib import slim
 
 from pipelines.data_sources import HuzzerSource, OneHotVecotorizer, TokenDatasource
 from models import (  # NOQA
-    build_conv1_encoder, build_decoder, build_conv1_decoder, build_conv1_encoder, conv_arg_scope
+    build_conv1_encoder,
+    build_decoder,
+    build_conv1_decoder,
+    build_conv1_encoder,
+    conv_arg_scope,
+    conv_arg_scope2,
+    build_special_conv_encoder,
+    build_special_conv_decoder,
+    build_special_conv2_encoder,
+    build_special_conv2_decoder
 )
 
 
 BASEDIR = 'experiments/VAE_baseline/'
 
 
-def generate_code(option):
+def generate_code(option, num_examples):
     if option == 'simple':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple()
     elif option == 'conv1':
@@ -42,6 +51,24 @@ def generate_code(option):
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss()
     elif option == 'simple_double_latent_sss':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(64)
+    elif option == 'simple_256_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
+    elif option == 'simple_1024_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    elif option == 'conv_special_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
+    elif option == 'conv_special_low_kl_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
+    elif option == 'conv_special2_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2()
+    elif option == 'conv_special2_l1_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2_l1()
+    elif option == 'conv_special3_l1_128_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(128)
+    elif option == 'conv_special3_l1_256_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(256)
+    elif option == 'conv_special3_big_l1_512_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(512, filter_length=10)
     else:
         print('INVALID OPTION')
         exit()
@@ -87,21 +114,29 @@ def generate_code(option):
         mkdir_p(autoencoded_dir)
         mkdir_p(markov_generating_dir)
 
-        for i in trange(5):
+        for i in trange(num_examples):
+            example_dir = '{}/{}/'.format(autoencoded_dir, i)
+            mkdir_p(example_dir)
             example_input = data_pipeline[str(i)].astype('float32')
             input_text = example_to_code(example_input)
 
             latent_rep, _ = e(example_input)
 
+            latent_image = latent_rep.reshape((latent_rep.size // 32, 32))
+
+            imsave(
+                example_dir + '{}_latent.png'.format(i),
+                latent_image
+            )
             reconstrcted_tokens, _ = g(latent_rep)
             autoencoded_text = example_to_code(reconstrcted_tokens)
-            imsave(autoencoded_dir + '{}_input.png'.format(i), example_input.T)
-            imsave(autoencoded_dir + '{}_output.png'.format(i), reconstrcted_tokens.T)
+            imsave(example_dir + '{}_input.png'.format(i), example_input.T)
+            imsave(example_dir + '{}_output.png'.format(i), reconstrcted_tokens.T)
 
-            with open(autoencoded_dir + '{}_input.hs'.format(i), 'w') as f:
+            with open(example_dir + '{}_input.hs'.format(i), 'w') as f:
                 f.write(input_text)
 
-            with open(autoencoded_dir + '{}_output.hs'.format(i), 'w') as f:
+            with open(example_dir + '{}_output.hs'.format(i), 'w') as f:
                 f.write(autoencoded_text)
 
 
@@ -250,6 +285,96 @@ def make_simple_sss(latent_dim=32):
     return data_pipeline, encoder_input, z, decoder_input, decoder_output
 
 
+def make_special_conv():
+    latent_dim = 64
+    x_shape = (128, 54)
+    huzz = HuzzerSource()
+    data_pipeline = OneHotVecotorizer(
+        TokenDatasource(huzz),
+        x_shape[1],
+        x_shape[0]
+    )
+
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+    with conv_arg_scope():
+        encoder_output, _ = build_special_conv_encoder(encoder_input, latent_dim)
+        decoder_output = build_special_conv_decoder(decoder_input, x_shape)
+        decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+        decoder_output = tf.squeeze(decoder_output, 0)
+
+    return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_special_conv2():
+        latent_dim = 64
+        x_shape = (128, 54)
+        huzz = HuzzerSource()
+        data_pipeline = OneHotVecotorizer(
+            TokenDatasource(huzz),
+            x_shape[1],
+            x_shape[0]
+        )
+
+        num_filters = 64
+        decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+        with conv_arg_scope():
+            encoder_output, _ = build_special_conv2_encoder(encoder_input, latent_dim, num_filters)
+            decoder_output = build_special_conv2_decoder(decoder_input, x_shape, num_filters)
+            decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+            decoder_output = tf.squeeze(decoder_output, 0)
+
+        return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_special_conv2_l1():
+        latent_dim = 64
+        x_shape = (128, 54)
+        huzz = HuzzerSource()
+        data_pipeline = OneHotVecotorizer(
+            TokenDatasource(huzz),
+            x_shape[1],
+            x_shape[0]
+        )
+
+        num_filters = 64
+        decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+        with conv_arg_scope2():
+            encoder_output, _ = build_special_conv2_encoder(encoder_input, latent_dim, num_filters)
+            decoder_output = build_special_conv2_decoder(decoder_input, x_shape, num_filters)
+            decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+            decoder_output = tf.squeeze(decoder_output, 0)
+
+        return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_special_conv3_l1(latent_dim, filter_length=5):
+    x_shape = (128, 54)
+    huzz = HuzzerSource()
+    data_pipeline = OneHotVecotorizer(
+        TokenDatasource(huzz),
+        x_shape[1],
+        x_shape[0]
+    )
+
+    num_filters = 64
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+    with conv_arg_scope2():
+        encoder_output, _ = build_special_conv2_encoder(
+            encoder_input, latent_dim, num_filters, filter_length=filter_length
+        )
+        decoder_output = build_special_conv2_decoder(
+            decoder_input, x_shape, num_filters, filter_length=filter_length
+        )
+        decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+        decoder_output = tf.squeeze(decoder_output, 0)
+
+    return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
 # echoes the behaviour of mkdir -p
 # from http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
 def mkdir_p(path):
@@ -264,8 +389,10 @@ def mkdir_p(path):
 
 if __name__ == '__main__':
     args = argv[1:]
-    assert len(args) == 1, 'you must give a experiment type'
-    option = args[0]
+    assert len(args) == 2, 'you must give a experiment type and a number of examples'
+    option, num_examples = args
+
+    num_examples = int(num_examples)
 
     with tf.Graph().as_default():
-        generate_code(option)
+        generate_code(option, num_examples)

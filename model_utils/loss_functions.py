@@ -36,7 +36,14 @@ def vae_loss(x, x_decoded, mus, log_sigmas, kl_limit=None):
     return total_loss
 
 
-def vae_cross_entropy_loss(x, x_decoded, mus, log_sigmas, kl_limit=None):
+def vae_cross_entropy_loss(
+    x,
+    x_decoded,
+    mus,
+    log_sigmas,
+    kl_limit=None,
+    kl_scale=None
+):
     """
     Similar to vae_loss, but uses cross-entropy rather than simple reconstruction_loss
 
@@ -60,6 +67,8 @@ def vae_cross_entropy_loss(x, x_decoded, mus, log_sigmas, kl_limit=None):
     )
     if kl_limit is not None:
         kl_loss = tf.maximum(kl_loss, tf.constant(kl_limit))
+    if kl_scale is not None:
+        kl_loss = kl_scale * kl_loss
     tf.summary.scalar('kl_loss', kl_loss)
 
     total_loss = tf.add(cross_entropy_loss, kl_loss, name='loss')

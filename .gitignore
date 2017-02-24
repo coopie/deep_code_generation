@@ -1,6 +1,15 @@
 # Project Specific
 *.cache.hdf5
 personal.md
+get_data_from_remote.sh
+
+# For tensorflow models
+model.ckpt*
+checkpoint
+events.out.tfevents.*
+graph.pbtxt
+# For generated examples
+*_examples/
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

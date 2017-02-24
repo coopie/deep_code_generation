@@ -15,6 +15,9 @@ from model_utils.queues import build_single_output_queue
 from models import (
     build_simple_network2,
     build_special_conv,
+    build_special_conv_low_kl,
+    build_special_conv2,
+    build_special_conv2_l1
 )
 
 import tensorflow as tf
@@ -35,7 +38,8 @@ def run_experiment(option):
     dataset = one_hot_token_dataset(
         BATCH_SIZE,
         NUMBER_BATCHES,
-        length=128
+        length=128,
+        cache_path='one_hot_token_haskell_batch{}_number{}'.format(BATCH_SIZE, NUMBER_BATCHES)
     )
 
     def get_batch():
@@ -47,10 +51,34 @@ def run_experiment(option):
     x = queue.dequeue(name='encoder_input')
     if option == 'simple':
         tensor_names = build_simple_network2(x, X_SHAPE, 32)
-    if option == 'simple_double_latent':
+    elif option == 'simple_double_latent':
         tensor_names = build_simple_network2(x, X_SHAPE, 64)
-    if option == 'conv_special':
+    elif option == 'simple_256':
+        tensor_names = build_simple_network2(x, X_SHAPE, 256)
+    elif option == 'simple_1024':
+        tensor_names = build_simple_network2(x, X_SHAPE, 1024)
+    elif option == 'simple_65536':
+        tensor_names = build_simple_network2(x, X_SHAPE, 65536)
+    elif option == 'conv_special':
         tensor_names = build_special_conv(x, X_SHAPE, 64)
+    elif option == 'conv_special_low_kl':
+        tensor_names = build_special_conv_low_kl(x, X_SHAPE, 64)
+    elif option == 'conv_special2':
+        tensor_names = build_special_conv2(x, X_SHAPE, 64)
+    elif option == 'conv_special2_l1':
+        tensor_names = build_special_conv2_l1(x, X_SHAPE, 64)
+    elif option == 'conv_special2_l1_128':
+        tensor_names = build_special_conv2_l1(x, X_SHAPE, 128)
+
+    # conv3 is conv2 but with initial filter length of 5 instead of 1
+    elif option == 'conv_special3_l1_128':
+        tensor_names = build_special_conv2_l1(x, X_SHAPE, 128, filter_length=5)
+    elif option == 'conv_special3_l1_256':
+        tensor_names = build_special_conv2_l1(x, X_SHAPE, 256, filter_length=5)
+    elif option == 'conv_special3_l1_128f_256':
+        tensor_names = build_special_conv2_l1(x, X_SHAPE, 256, filter_length=5, num_filters=128)
+    elif option == 'conv_special3_big_l1_512':
+        tensor_names = build_special_conv2_l1(x, X_SHAPE, 512, filter_length=10)
     else:
         print('INVALID OPTION')
         exit(1)
