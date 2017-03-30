@@ -457,6 +457,83 @@ def build_special_conv2_decoder(z_resampled, x_shape, num_filters, filter_length
     return x_decoded_mean
 
 
+def build_special_conv4_l1(
+    x, x_shape, latent_dim, filter_length=1, num_filters=64, epsilon_std=0.01
+):
+    with conv_arg_scope2():
+        z_mus, z_log_sigmas, dense_layer_size = build_special_conv4_encoder(
+            x, latent_dim, num_filters, filter_length
+        )
+        z_resampled = build_resampling(z_mus, z_log_sigmas, epsilon_std)
+
+        x_decoded_mean = build_special_conv4_decoder(
+            z_resampled, x_shape, num_filters, filter_length, dense_layer_size
+        )
+        loss = vae_cross_entropy_loss(x, x_decoded_mean, z_mus, z_log_sigmas, kl_limit=0.1)
+        optimizer = tf.train.AdamOptimizer()
+        tf.identity(slim.learning.create_train_op(loss, optimizer), name='train_on_batch')
+    return NAMES
+
+
+def build_special_conv4_encoder(x, latent_dim, num_filters, filter_length=1):
+    print('building encoder')
+    x_conv = tf.expand_dims(x, -1)
+    print('input: {}'.format(x_conv.get_shape()))
+
+    net = layers.conv2d(x_conv, num_filters, (filter_length, 54), padding='VALID')
+    print('conv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d(net, num_filters, (5, 1), padding='VALID')
+    print('conv: {}'.format(net.get_shape()))
+
+    net = layers.flatten(net)
+    print('flatten: {}'.format(net.get_shape()))
+    dense_layer_size = net.get_shape()[1].value
+
+    mus = slim.fully_connected(
+        net, latent_dim, scope='encoder_output', activation_fn=tf.tanh
+    )
+    log_sigmas = slim.fully_connected(
+        net, latent_dim, scope='encoder_sigmas', activation_fn=tf.tanh
+    )
+    return mus, log_sigmas, dense_layer_size
+
+
+def build_special_conv4_decoder(z_resampled, x_shape, num_filters, filter_length=1, dense_layer_size=None):
+    print('decoder_structure')
+    if dense_layer_size is None:
+        raise RuntimeError('dense_layer_size is not initialised.')
+
+    net = slim.fully_connected(
+        z_resampled, dense_layer_size, activation_fn=tf.nn.relu
+    )
+    print('fully_connected rep: {}'.format(net.get_shape()))
+    net = tf.reshape(net, (-1, dense_layer_size // num_filters, 1, num_filters))
+    print('reshaped rep: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(
+        net, 256, (5, 1), padding='VALID'
+    )
+    print('deconv: {}'.format(net.get_shape()))
+
+    net = layers.conv2d_transpose(
+        net, 1, (filter_length, 54),
+        stride=(1, 1), padding='VALID', activation_fn=tf.nn.relu6
+    )
+    print('deconv: {}'.format(net.get_shape()))
+
+    feature_map_width = net.get_shape()[1].value
+    print('feature_map_width: {}'.format(feature_map_width))
+    if feature_map_width != 128:
+        difference = feature_map_width - 128
+        net = net[:, (difference // 2):-(difference // 2 + (difference % 2)), :, :]
+        print('trimmed dimensions: {}'.format(net.get_shape()))
+
+    x_decoded_mean = tf.squeeze(net, -1)
+    print('final shape: {}'.format(x_decoded_mean.get_shape()))
+    return x_decoded_mean
+
+
 def build_resampling(z_mus, z_log_sigmas, epsilon_std):
     def sampling(z_mean, z_log_sigma):
         epsilon = tf.random_normal(

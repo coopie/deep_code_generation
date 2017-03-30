@@ -17,7 +17,8 @@ from models import (
     build_special_conv,
     build_special_conv_low_kl,
     build_special_conv2,
-    build_special_conv2_l1
+    build_special_conv2_l1,
+    build_special_conv4_l1
 )
 
 import tensorflow as tf
@@ -57,8 +58,8 @@ def run_experiment(option):
         tensor_names = build_simple_network2(x, X_SHAPE, 256)
     elif option == 'simple_1024':
         tensor_names = build_simple_network2(x, X_SHAPE, 1024)
-    elif option == 'simple_65536':
-        tensor_names = build_simple_network2(x, X_SHAPE, 65536)
+    elif option == 'simple_8192':
+        tensor_names = build_simple_network2(x, X_SHAPE, 8192)
     elif option == 'conv_special':
         tensor_names = build_special_conv(x, X_SHAPE, 64)
     elif option == 'conv_special_low_kl':
@@ -79,6 +80,10 @@ def run_experiment(option):
         tensor_names = build_special_conv2_l1(x, X_SHAPE, 256, filter_length=5, num_filters=128)
     elif option == 'conv_special3_big_l1_512':
         tensor_names = build_special_conv2_l1(x, X_SHAPE, 512, filter_length=10)
+    elif option == 'conv_special4_l1_1024':
+        tensor_names = build_special_conv4_l1(x, X_SHAPE, 1024, filter_length=3, num_filters=256)
+    elif option == 'conv_special4_l1_2048_f5':
+        tensor_names = build_special_conv4_l1(x, X_SHAPE, 1024, filter_length=5, num_filters=256)
     else:
         print('INVALID OPTION')
         exit(1)

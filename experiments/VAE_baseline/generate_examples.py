@@ -29,7 +29,9 @@ from models import (  # NOQA
     build_special_conv_encoder,
     build_special_conv_decoder,
     build_special_conv2_encoder,
-    build_special_conv2_decoder
+    build_special_conv2_decoder,
+    build_special_conv4_encoder,
+    build_special_conv4_decoder
 )
 
 
@@ -53,8 +55,18 @@ def generate_code(option, num_examples):
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(64)
     elif option == 'simple_256_sss':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
+    elif option == 'simple_256_1k':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
     elif option == 'simple_1024_sss':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    elif option == 'simple_1024_10k':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    elif option == 'simple_1024_1k':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    elif option == 'simple_1024_no_limit_1k':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    elif option == 'simple_8192_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(8192)
     elif option == 'conv_special_sss':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
     elif option == 'conv_special_low_kl_sss':
@@ -68,7 +80,13 @@ def generate_code(option, num_examples):
     elif option == 'conv_special3_l1_256_sss':
         data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(256)
     elif option == 'conv_special3_big_l1_512_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(512, filter_length=10)
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(
+            512, filter_length=10
+        )
+    elif option == 'conv_special4_l1_1024_sss':
+        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv4_l1(
+            1024, filter_length=3, num_filters=256
+        )
     else:
         print('INVALID OPTION')
         exit()
@@ -373,6 +391,30 @@ def make_special_conv3_l1(latent_dim, filter_length=5):
         decoder_output = tf.squeeze(decoder_output, 0)
 
     return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_special_conv4_l1(latent_dim, filter_length=3, num_filters=256):
+        x_shape = (128, 54)
+        huzz = HuzzerSource()
+        data_pipeline = OneHotVecotorizer(
+            TokenDatasource(huzz),
+            x_shape[1],
+            x_shape[0]
+        )
+
+        decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+        with conv_arg_scope2():
+            encoder_output, _, dense_layer_size = build_special_conv4_encoder(
+                encoder_input, latent_dim, num_filters, filter_length=filter_length
+            )
+            decoder_output = build_special_conv4_decoder(
+                decoder_input, x_shape, num_filters, filter_length=filter_length, dense_layer_size=dense_layer_size
+            )
+            decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+            decoder_output = tf.squeeze(decoder_output, 0)
+
+        return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
 
 
 # echoes the behaviour of mkdir -p
