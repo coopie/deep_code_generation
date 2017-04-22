@@ -74,3 +74,25 @@ def vae_cross_entropy_loss(
     total_loss = tf.add(cross_entropy_loss, kl_loss, name='loss')
     tf.summary.scalar('total_loss', total_loss)
     return total_loss
+
+
+# For TF Fold
+def softmax_crossentropy(logit, label_vector):
+    return tf.nn.softmax_cross_entropy_with_logits(
+        labels=label_vector,
+        logits=logit
+    )
+
+
+def kl_divergence(mus_and_log_sigs):
+
+    halfway = int(mus_and_log_sigs.get_shape()[1].value / 2)  # HACK: make this cleaner
+    mus = mus_and_log_sigs[:, :halfway]
+    log_sigs = mus_and_log_sigs[:, halfway:]
+
+    kl_loss_term = -0.5 * tf.reduce_mean(
+        1 + log_sigs - tf.square(mus) - tf.exp(log_sigs),
+        axis=1
+    )
+
+    return kl_loss_term

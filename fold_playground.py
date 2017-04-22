@@ -53,7 +53,7 @@ def build_VAE(z_size, token_emb_size):
         #     ),
         #     'encoder'
         # )
-        rnn_cell = td.ScopedLayer(
+        encoder_rnn_cell = td.ScopedLayer(
             tf.contrib.rnn.GRUCell(
                 num_units=2*z_size,
                 # initializer=tf.contrib.layers.xavier_initializer(),
@@ -61,7 +61,7 @@ def build_VAE(z_size, token_emb_size):
             ),
             'encoder'
         )
-        output_sequence = td.RNN(rnn_cell) >> td.GetItem(0)
+        output_sequence = td.RNN(encoder_rnn_cell) >> td.GetItem(0)
         mus_and_log_sigs = output_sequence >> td.GetItem(-1)
 
         # reparam_z = mus_and_log_sigs >> td.Function(resampling)
