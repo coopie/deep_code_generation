@@ -57,13 +57,13 @@ def run_experiment(option):
     metrics = compiler.metric_tensors
     kl_loss = tf.reduce_mean(metrics['kl_loss'])
     cross_entropy_loss = tf.reduce_mean(metrics['cross_entropy_loss'])
-    total_loss = kl_loss + cross_entropy_loss
+    total_loss_op = kl_loss + cross_entropy_loss
     tf.summary.scalar('cross_entropy_loss', cross_entropy_loss)
     tf.summary.scalar('kl_loss', kl_loss)
-    tf.summary.scalar('total_loss', total_loss)
+    tf.summary.scalar('total_loss', total_loss_op)
 
     optimizer = tf.train.AdamOptimizer(1e-3)
-    train_op = slim.learning.create_train_op(total_loss, optimizer)
+    train_op = slim.learning.create_train_op(total_loss_op, optimizer)
     summary_op = tf.summary.merge_all()
 
 
@@ -87,7 +87,7 @@ def run_experiment(option):
                 break
 
             summary, global_step, total_loss, _ = sess.run(
-                [summary_op, sv.global_step, total_loss, train_op],
+                [summary_op, sv.global_step, total_loss_op, train_op],
                 feed_dict={compiler.loom_input_tensor: batch}
             )
             if i % steps_per_summary == 0:
