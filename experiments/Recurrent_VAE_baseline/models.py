@@ -37,7 +37,6 @@ def build_program_decoder(z_size, token_emb_size):
     decoder_rnn = td.ScopedLayer(
         tf.contrib.rnn.GRUCell(
             num_units=z_size,
-            # initializer=tf.contrib.layers.xavier_initializer(),
             activation=tf.tanh
         ),
         'decoder'

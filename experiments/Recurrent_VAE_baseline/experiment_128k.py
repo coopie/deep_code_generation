@@ -41,8 +41,9 @@ def run_experiment(option):
             yield np.squeeze(dataset()[0], axis=0)
 
     # use the queue for training
-    if option == 'gru_8':
-        network_block = build_token_level_RVAE(32, TOKEN_EMB_SIZE)
+    if option.startswith('single_layer_gru_'):
+        num_grus = int(option.split('_')[-1])
+        network_block = build_token_level_RVAE(num_grus, TOKEN_EMB_SIZE)
         train_block = build_train_graph_for_RVAE(network_block)
     else:
         print('INVALID OPTION')
@@ -85,7 +86,7 @@ def run_experiment(option):
             if sv.should_stop():
                 break
 
-            summary, global_step, total_loss _ = sess.run(
+            summary, global_step, total_loss, _ = sess.run(
                 [summary_op, sv.global_step, total_loss, train_op],
                 feed_dict={compiler.loom_input_tensor: batch}
             )
@@ -97,7 +98,7 @@ def run_experiment(option):
             if (total_loss + 0.005) < best_loss_so_far:
                 best_loss_so_far = total_loss
                 num_steps_until_best = 0
-            else
+            else:
                 num_steps_until_best += 1
                 if num_steps_until_best == NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT:
                     exit()
