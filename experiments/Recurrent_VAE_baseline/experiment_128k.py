@@ -21,7 +21,7 @@ slim = tf.contrib.slim
 
 
 TOKEN_EMB_SIZE = 54  # Using categorical labels for the finite subsetset of haskell
-NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT = 300
+NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT = 3000  # stop if no improvement after an epoch
 def run_experiment(option):
     BATCH_SIZE = 128
     NUMBER_BATCHES = 1000
@@ -92,9 +92,8 @@ def run_experiment(option):
             if i % steps_per_summary == 0:
                 sv.summary_computed(sess, summary, global_step)
 
-            # Stop if loss does not improve after 100 steps
-            # add a small amount to the current loss to reduce noisey things
-            if (total_loss + 0.001) < best_loss_so_far:
+            # Stop if loss does not improve after some steps
+            if total_loss < best_loss_so_far:
                 best_loss_so_far = total_loss
                 num_steps_until_best = 0
             else:
