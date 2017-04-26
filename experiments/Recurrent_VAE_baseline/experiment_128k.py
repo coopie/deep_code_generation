@@ -8,7 +8,8 @@ from pipelines.one_hot_token import one_hot_variable_length_token_dataset
 import tensorflow_fold as td
 
 from models import (
-    build_token_level_RVAE,
+    build_token_level_RVAE_no_look_behind,
+    build_token_level_RVAE_look_behind,
     build_train_graph_for_RVAE
 )
 
@@ -25,14 +26,32 @@ NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT = 3000  # stop if no improvement after an ep
 def run_experiment(option):
     BATCH_SIZE = 128
     NUMBER_BATCHES = 1000
-    # set up pipeline
+
+    print('Building model..')
+    if option.startswith('single_layer_gru_blind_'):
+        look_behind = 0
+        num_grus = int(option.split('_')[-1])
+        network_block = build_token_level_RVAE_no_look_behind(num_grus, TOKEN_EMB_SIZE)
+        train_block = build_train_graph_for_RVAE(network_block)
+    if option.startswith('single_layer_gru_16_look_behind_'):
+        look_behind = 16
+        num_lstms = int(option.split('_')[-1])
+        network_block = build_token_level_RVAE_look_behind(
+            num_lstms, TOKEN_EMB_SIZE, look_behind
+        )
+        train_block = build_train_graph_for_RVAE(network_block)
+    else:
+        print('INVALID OPTION')
+        exit(1)
+
     print('Setting up data pipeline')
     dataset = one_hot_variable_length_token_dataset(
         batch_size=1,
         number_of_batches=BATCH_SIZE * 1000,
-        cache_path='one_hot_token_variable_length_haskell_batch{}_number{}'.format(
-            BATCH_SIZE, NUMBER_BATCHES
-        )
+        cache_path='one_hot_token_variable_length_haskell_batch{}_number{}_lookbehind{}'.format(
+            BATCH_SIZE, NUMBER_BATCHES, look_behind
+        ),
+        zero_front_pad=look_behind
     )
 
     # Generator that gets examples
@@ -40,14 +59,6 @@ def run_experiment(option):
         while True:
             yield np.squeeze(dataset()[0], axis=0)
 
-    # use the queue for training
-    if option.startswith('single_layer_gru_'):
-        num_grus = int(option.split('_')[-1])
-        network_block = build_token_level_RVAE(num_grus, TOKEN_EMB_SIZE)
-        train_block = build_train_graph_for_RVAE(network_block)
-    else:
-        print('INVALID OPTION')
-        exit(1)
 
     logdir = 'experiments/Recurrent_VAE_baseline/{}'.format(option)
 

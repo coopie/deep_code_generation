@@ -22,23 +22,30 @@ def resampling_block(z_size):
     return reparam_z
 
 
-def build_program_encoder(z_size):
+def default_gru_cell(size):
+    return tf.contrib.rnn.GRUCell(
+        num_units=size,
+        activation=tf.tanh
+    )
+
+
+def default_lstm_cell(size):
+    return tf.contrib.rnn.BasicLSTMCell(
+        num_units=size,
+        activation=tf.tanh
+    )
+
+
+def build_program_encoder(rnn_cell):
     return td.ScopedLayer(
-        tf.contrib.rnn.GRUCell(
-            num_units=2*z_size,
-            # initializer=tf.contrib.layers.xavier_initializer(),
-            activation=tf.tanh
-        ),
+        rnn_cell,
         'encoder'
     )
 
 
-def build_program_decoder(z_size, token_emb_size):
+def build_program_decoder(token_emb_size, rnn_cell):
     decoder_rnn = td.ScopedLayer(
-        tf.contrib.rnn.GRUCell(
-            num_units=z_size,
-            activation=tf.tanh
-        ),
+        rnn_cell,
         'decoder'
     )
     decoder_rnn_output = td.RNN(
@@ -57,13 +64,14 @@ def build_program_decoder(z_size, token_emb_size):
     return un_normalised_token_probs
 
 
-def build_token_level_RVAE(z_size, token_emb_size):
+def build_token_level_RVAE_no_look_behind(z_size, token_emb_size):
+    # Curently uses only GRU
     c = td.Composition()
     c.set_input_type(td.SequenceType(td.TensorType(([token_emb_size]), 'float32')))
     with c.scope():
         input_sequence = c.input
         # build encoder block
-        encoder_rnn_cell = build_program_encoder(z_size)
+        encoder_rnn_cell = build_program_encoder(default_gru_cell(2*z_size))
 
         output_sequence = td.RNN(encoder_rnn_cell) >> td.GetItem(0)
         mus_and_log_sigs = output_sequence >> td.GetItem(-1)
@@ -77,12 +85,48 @@ def build_token_level_RVAE(z_size, token_emb_size):
         )
 
         # build decoder block
-        un_normalised_token_probs = build_program_decoder(z_size, token_emb_size)
+        un_normalised_token_probs = build_program_decoder(
+            token_emb_size, default_gru_cell(z_size)
+        )
 
         mus_and_log_sigs.reads(input_sequence)
         reparam_z.reads(mus_and_log_sigs)
         list_of_nothing.reads(input_sequence)
         un_normalised_token_probs.reads(list_of_nothing, reparam_z)
+
+        c.output.reads(un_normalised_token_probs, mus_and_log_sigs)
+    return c
+
+
+def build_token_level_RVAE_look_behind(z_size, token_emb_size, look_behind_length):
+    # currently only uses GRU cells
+    c = td.Composition()
+    c.set_input_type(td.SequenceType(td.TensorType(([token_emb_size]), 'float32')))
+    with c.scope():
+        padded_input_sequence = c.input
+        # build encoder block
+        encoder_rnn_cell = build_program_encoder(default_gru_cell(2 * z_size))
+
+        output_sequence = td.RNN(encoder_rnn_cell) >> td.GetItem(0)
+        mus_and_log_sigs = output_sequence >> td.GetItem(-1)
+
+        reparam_z = resampling_block(z_size)
+
+        decoder_look_behind = td.NGrams(look_behind_length) >> td.Map(td.Concat())
+        # build decoder block
+        un_normalised_token_probs = build_program_decoder(
+            token_emb_size, default_gru_cell(z_size)
+        )
+
+        # remove padding for input sequence
+        input_sequence = td.Slice(start=look_behind_length)
+        input_sequence.reads(padded_input_sequence)
+
+        mus_and_log_sigs.reads(input_sequence)
+        reparam_z.reads(mus_and_log_sigs)
+
+        decoder_look_behind.reads(padded_input_sequence)
+        un_normalised_token_probs.reads(decoder_look_behind, reparam_z)
 
         c.output.reads(un_normalised_token_probs, mus_and_log_sigs)
     return c
