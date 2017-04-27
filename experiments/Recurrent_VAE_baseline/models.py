@@ -145,6 +145,7 @@ def build_train_graph_for_RVAE(rvae_block, look_behind_length=0):
         mus_and_log_sigs = td.GetItem(1).reads(network_output)
 
         input_sequence = td.Slice(start=look_behind_length).reads(padded_input_sequence)
+        # TODO: metric that output of rnn is the same as input sequence
         cross_entropy_loss = td.ZipWith(td.Function(softmax_crossentropy)) >> td.Mean()
         cross_entropy_loss.reads(
             un_normalised_token_probs,

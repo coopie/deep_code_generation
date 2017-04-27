@@ -39,12 +39,12 @@ def run_experiment(option):
         network_block = build_token_level_RVAE_look_behind(
             num_lstms, TOKEN_EMB_SIZE, look_behind
         )
-        train_block = build_train_graph_for_RVAE(network_block)
+        train_block = build_train_graph_for_RVAE(network_block, look_behind)
     else:
         print('INVALID OPTION')
         exit(1)
 
-    print('Setting up data pipeline')
+    print('Setting up data pipeline...')
     dataset = one_hot_variable_length_token_dataset(
         batch_size=1,
         number_of_batches=BATCH_SIZE * 1000,
