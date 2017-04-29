@@ -118,7 +118,9 @@ def build_token_level_RVAE_look_behind(z_size, token_emb_size, look_behind_lengt
 
         reparam_z = resampling_block(z_size)
 
-        decoder_look_behind = td.NGrams(look_behind_length) >> td.Map(td.Concat())
+        decoder_look_behind = (
+            td.Slice(stop=-1) >> td.NGrams(look_behind_length) >> td.Map(td.Concat())
+        )
         # build decoder block
         un_normalised_token_probs = build_program_decoder(
             token_emb_size, default_gru_cell(z_size)
@@ -132,6 +134,8 @@ def build_token_level_RVAE_look_behind(z_size, token_emb_size, look_behind_lengt
         reparam_z.reads(mus_and_log_sigs)
 
         decoder_look_behind.reads(padded_input_sequence)
+        td.Metric('encoder_sequence_length').reads(td.Length().reads(input_sequence))
+        td.Metric('decoder_sequence_length').reads(td.Length().reads(decoder_look_behind))
         un_normalised_token_probs.reads(decoder_look_behind, reparam_z)
 
         c.output.reads(un_normalised_token_probs, mus_and_log_sigs)

@@ -33,9 +33,9 @@ def run_experiment(option):
         num_grus = int(option.split('_')[-1])
         network_block = build_token_level_RVAE_no_look_behind(num_grus, TOKEN_EMB_SIZE)
         train_block = build_train_graph_for_RVAE(network_block)
-    if option.startswith('single_layer_gru_16_look_behind_'):
-        look_behind = 16
+    if option.startswith('single_layer_gru_look_behind_'):
         num_lstms = int(option.split('_')[-1])
+        look_behind = int(option.split('_')[-2])
         network_block = build_token_level_RVAE_look_behind(
             num_lstms, TOKEN_EMB_SIZE, look_behind
         )
@@ -97,10 +97,23 @@ def run_experiment(option):
             if sv.should_stop():
                 break
 
-            summary, global_step, total_loss, _ = sess.run(
-                [summary_op, sv.global_step, total_loss_op, train_op],
+            encoder_sequence_length_t = compiler.metric_tensors['encoder_sequence_length']
+            decoder_sequence_length_t = compiler.metric_tensors['decoder_sequence_length']
+
+            le, ld, summary, global_step, total_loss, _ = sess.run(
+                [
+                    encoder_sequence_length_t,
+                    decoder_sequence_length_t,
+                    summary_op,
+                    sv.global_step,
+                    total_loss_op,
+                    train_op
+                ],
                 feed_dict={compiler.loom_input_tensor: batch}
             )
+            assert all(le == ld), \
+                'the encoder is folding over a different length sequence to encoder'
+            import coKract(local=locals())
             if i % steps_per_summary == 0:
                 sv.summary_computed(sess, summary, global_step)
 
