@@ -60,7 +60,9 @@ def one_hot_variable_length_token_dataset(
     if cache_path is not None:
         fs_data_source = CachedDatasource(token_pipeline, cache_path)
 
-    fs_data_source = FixedSizeArrayDatasource(fs_data_source, batch_size * number_of_batches)
+    fs_data_source = FixedSizeArrayDatasource(
+        fs_data_source, batch_size * number_of_batches
+    )
     callbacks = [ShuffleDatasetCallback(seed=1337), LogEpochEndCallback()]
 
     generator = DatasetGenerator(

@@ -7,6 +7,9 @@ from model_utils.ops import vae_resampling
 
 
 def resampling(mus_and_log_sigs):
+    """
+    Batch resampling operation, mus_and_log_sigs of shape (b x z_size*2)
+    """
     z_size = mus_and_log_sigs.get_shape()[-1].value // 2
     mus = mus_and_log_sigs[:, :z_size]
     log_sigs = mus_and_log_sigs[:, z_size:]
@@ -44,6 +47,9 @@ def build_program_encoder(rnn_cell):
 
 
 def build_program_decoder(token_emb_size, rnn_cell):
+    """
+    Used for blind or 'look-behind' decoders
+    """
     decoder_rnn = td.ScopedLayer(
         rnn_cell,
         'decoder'

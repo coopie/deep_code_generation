@@ -45,11 +45,12 @@ def run_experiment(option):
         exit(1)
 
     print('Setting up data pipeline...')
+    # the generator for fold needs one example at a time,
     dataset = one_hot_variable_length_token_dataset(
         batch_size=1,
-        number_of_batches=BATCH_SIZE * 1000,
+        number_of_batches=BATCH_SIZE * NUMBER_BATCHES,
         cache_path='one_hot_token_variable_length_haskell_batch{}_number{}_lookbehind{}'.format(
-            BATCH_SIZE, NUMBER_BATCHES, look_behind
+            1, NUMBER_BATCHES * BATCH_SIZE, look_behind
         ),
         zero_front_pad=look_behind
     )
