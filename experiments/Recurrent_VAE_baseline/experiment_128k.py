@@ -113,7 +113,6 @@ def run_experiment(option):
             )
             assert all(le == ld), \
                 'the encoder is folding over a different length sequence to encoder'
-            import coKract(local=locals())
             if i % steps_per_summary == 0:
                 sv.summary_computed(sess, summary, global_step)
 
