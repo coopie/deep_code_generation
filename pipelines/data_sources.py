@@ -89,6 +89,9 @@ class OneHotVecotorizer(Datasource):
     one hot vectors. If max_len is specified, then vectors are padded with
     empty vectors, and sentences generated longer than `max_len` cause the
     Datasource to get a deteministically random 'other' key.
+
+    If `max_len` is None, a single empty vector is added to the end to represent
+    an end token
     """
     def __init__(self, ds, alphabet_size, max_len=None):
         self.ds = ds
@@ -104,10 +107,11 @@ class OneHotVecotorizer(Datasource):
             logging.debug('{} is too long!, getting {}'.format(key, new_key))
             return self[str(new_key)]
 
-        array_len = self.max_len if self.max_len is not None else len(sentence)
+        # final token needs to be a 'finish' token
+        array_len = self.max_len if self.max_len is not None else (len(sentence) + 1)
         arr = np.zeros((array_len, self.alphabet_size), dtype=np.uint8)
         arr[range(len(sentence)), sentence] = 1
 
-        # all tokens range from 1->53. a zero value represents `nothing`. i.e. padding characters
+        # all tokens range from 1->53. a zero value represents `nothing`. i.e. padding/end characters
         arr[range(len(sentence), len(arr)), 0] = 1
         return arr

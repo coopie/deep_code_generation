@@ -1,5 +1,4 @@
-import project_context  #  NOQA
-
+import project_context  # NOQA
 from sys import argv
 import numpy as np
 
@@ -8,21 +7,20 @@ from pipelines.one_hot_token import one_hot_variable_length_token_dataset
 import tensorflow_fold as td
 
 from models import (
-    build_token_level_RVAE_no_look_behind,
-    build_token_level_RVAE_look_behind,
+    build_token_level_RVAE,
     build_train_graph_for_RVAE
 )
 
 import tensorflow as tf
-from tensorflow.python.ops import variables as tf_variables
 from tensorflow.python.training.supervisor import Supervisor
-from tensorflow.python.summary import summary
 tf.logging.set_verbosity(tf.logging.INFO)
 slim = tf.contrib.slim
 
 
 TOKEN_EMB_SIZE = 54  # Using categorical labels for the finite subsetset of haskell
 NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT = 3000  # stop if no improvement after an epoch
+
+
 def run_experiment(option):
     BATCH_SIZE = 128
     NUMBER_BATCHES = 1000
@@ -31,13 +29,13 @@ def run_experiment(option):
     if option.startswith('single_layer_gru_blind_'):
         look_behind = 0
         num_grus = int(option.split('_')[-1])
-        network_block = build_token_level_RVAE_no_look_behind(num_grus, TOKEN_EMB_SIZE)
+        network_block = build_token_level_RVAE(num_grus, TOKEN_EMB_SIZE, look_behind_length=0)
         train_block = build_train_graph_for_RVAE(network_block)
     if option.startswith('single_layer_gru_look_behind_'):
-        num_lstms = int(option.split('_')[-1])
+        num_grus = int(option.split('_')[-1])
         look_behind = int(option.split('_')[-2])
-        network_block = build_token_level_RVAE_look_behind(
-            num_lstms, TOKEN_EMB_SIZE, look_behind
+        network_block = build_token_level_RVAE(
+            num_grus, TOKEN_EMB_SIZE, look_behind
         )
         train_block = build_train_graph_for_RVAE(network_block, look_behind)
     else:
@@ -60,7 +58,6 @@ def run_experiment(option):
         while True:
             yield np.squeeze(dataset()[0], axis=0)
 
-
     logdir = 'experiments/Recurrent_VAE_baseline/{}'.format(option)
 
     # compile and build the train op
@@ -77,7 +74,6 @@ def run_experiment(option):
     optimizer = tf.train.AdamOptimizer(1e-3)
     train_op = slim.learning.create_train_op(total_loss_op, optimizer)
     summary_op = tf.summary.merge_all()
-
 
     sv = Supervisor(
         logdir=logdir,
@@ -124,9 +120,6 @@ def run_experiment(option):
                 num_steps_until_best += 1
                 if num_steps_until_best == NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT:
                     exit()
-
-
-
 
 
 if __name__ == '__main__':
