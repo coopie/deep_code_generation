@@ -94,9 +94,7 @@ def run_experiment(option):
         while not sv.should_stop():
             i += 1
 
-            import code  # NOQA
-            code.interact(local=locals())
-            total_loss = sess.run(total_loss_op)
+            total_loss, _ = sess.run([total_loss_op, train_op])
             # Stop if loss does not improve after some steps
             if total_loss < best_loss_so_far:
                 best_loss_so_far = total_loss
