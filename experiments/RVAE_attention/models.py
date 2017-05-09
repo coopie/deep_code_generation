@@ -87,7 +87,7 @@ def calculate_ce_loss_for_batch(
     mask = tf.sequence_mask(sequence_lengths, max_length, dtype=tf.float32)
 
     masked = (mask * ce_losses)
-    sums = tf.reduce_sum(masked, axis=-1)
+    sums = tf.reduce_mean(masked, axis=-1)
     return sums
 
 
@@ -117,16 +117,6 @@ def simple_attention_coefs(previous_hidden_states, h, reuse, name_suffix=''):
         h_prev = previous_hidden_states[:, i]
         unnormalized_coefs += [tf.reduce_sum(tf.multiply(h_proj, h_prev), axis=1)]
 
-
-    # un_normalized_coefs = [
-    #     # tf.batch_matmul(h_proj, tf.transpose(h_prev))
-    #     # tf.batch_matmul(
-    #     #     tf.expand_dims(h_proj, 2),
-    #     #     tf.expand_dims(h_prev, 1)
-    #     # )
-    #     tf.reduce_sum(tf.mul(h_proj, h_prev), axis=1)
-    #     for h_prev in previous_hidden_states
-    # ]
     return tf.stack(
         unnormalized_coefs, axis=1
     )
