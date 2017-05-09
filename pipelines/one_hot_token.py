@@ -23,6 +23,32 @@ def one_hot_token_pipeline(
     return data_source
 
 
+def one_hot_token_random_batcher(
+    batch_size,
+    number_of_batches,
+    length,
+    cache_path=None,
+):
+    data_source = one_hot_token_pipeline(for_cnn=False, length=length)
+
+    fs_data_source = FixedSizeArrayDatasource(data_source, batch_size * number_of_batches)
+
+    if cache_path is not None:
+        fs_data_source = CachedArrayDatasource(fs_data_source, cache_path)
+
+    rand = np.random.RandomState(1337)
+
+    def get_random_batch():
+        indices = rand.random_integers(
+            0,
+            (batch_size * number_of_batches) - 1,
+            size=batch_size
+        )
+        return fs_data_source[indices]
+
+    return get_random_batch
+
+
 def one_hot_token_dataset(
     batch_size,
     number_of_batches,
@@ -58,15 +84,15 @@ def one_hot_variable_length_token_dataset(
         token_pipeline = LambdaDatasource(token_pipeline, pad_zeros(zero_front_pad))
 
     if cache_path is not None:
-        fs_data_source = CachedDatasource(token_pipeline, cache_path)
+        token_pipeline = CachedDatasource(token_pipeline, cache_path)
 
-    fs_data_source = FixedSizeArrayDatasource(
-        fs_data_source, batch_size * number_of_batches
+    token_pipeline = FixedSizeArrayDatasource(
+        token_pipeline, batch_size * number_of_batches
     )
     callbacks = [ShuffleDatasetCallback(seed=1337), LogEpochEndCallback()]
 
     generator = DatasetGenerator(
-        [fs_data_source],
+        [token_pipeline],
         batch_size,
         callbacks
     )

@@ -87,7 +87,7 @@ class OneHotVecotorizer(Datasource):
     """
     Get a source of tokens of `alphabet_size` sized alphabet. Turn it into
     one hot vectors. If max_len is specified, then vectors are padded with
-    empty vectors, and sentences generated longer than `max_len` cause the
+    empty vectors, and sentences generated longer or equal to `max_len` cause the
     Datasource to get a deteministically random 'other' key.
 
     If `max_len` is None, a single empty vector is added to the end to represent
@@ -101,7 +101,7 @@ class OneHotVecotorizer(Datasource):
 
     def _process(self, key):
         sentence = self.ds[key]
-        if self.max_len is not None and len(sentence) > self.max_len:
+        if self.max_len is not None and len(sentence) >= self.max_len:
             self.rand.seed(int(key))
             new_key = self.rand.randint(0, 2**30)
             logging.debug('{} is too long!, getting {}'.format(key, new_key))
