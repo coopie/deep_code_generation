@@ -6,14 +6,11 @@ import os
 import logging
 from pipelines.one_hot_token import one_hot_token_random_batcher
 from model_utils.queues import build_single_output_queue
-from model_utils.loss_functions import kl_divergence
-
+from model_utils.loss_functions import kl_divergence, ce_loss_for_sequence_batch
+from model_utils.ops import get_sequence_lengths, resampling
 from models import (
-    get_sequence_lengths,
     build_attention1_decoder,
     build_single_program_encoder,
-    resampling,
-    calculate_ce_loss_for_batch
 )
 
 import tensorflow as tf
@@ -58,7 +55,7 @@ def run_experiment(option):
             z_resampled, sequence_lengths, SEQUENCE_CAP, TOKEN_EMB_SIZE
         )
         cross_entropy_loss = tf.reduce_mean(
-            calculate_ce_loss_for_batch(
+            ce_loss_for_sequence_batch(
                 decoder_output,
                 input_sequences,
                 sequence_lengths,

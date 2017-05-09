@@ -96,3 +96,17 @@ def softmax_crossentropy(logit, label_vector):
         labels=label_vector,
         logits=logit
     )
+
+
+def ce_loss_for_sequence_batch(
+    unnormalized_token_probs, input_sequences, sequence_lengths, max_length
+):
+    ce_losses = tf.nn.softmax_cross_entropy_with_logits(
+        logits=unnormalized_token_probs,
+        labels=input_sequences
+    )
+    mask = tf.sequence_mask(sequence_lengths, max_length, dtype=tf.float32)
+
+    masked = (mask * ce_losses)
+    sums = tf.reduce_mean(masked, axis=-1)
+    return sums

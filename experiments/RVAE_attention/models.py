@@ -2,8 +2,10 @@ import project_context  # NOQA
 import tensorflow as tf
 from tqdm import tqdm
 
-from model_utils.loss_functions import kl_divergence
-from model_utils.ops import vae_resampling
+from model_utils.ops import (
+    resampling,
+    compute_attention_vector
+)
 
 
 
@@ -77,34 +79,10 @@ def build_single_program_encoder(input_sequences, sequence_lengths, z_size):
     return m_state
 
 
-def calculate_ce_loss_for_batch(
-    unnormalized_token_probs, input_sequences, sequence_lengths, max_length
-):
-    ce_losses = tf.nn.softmax_cross_entropy_with_logits(
-        logits=unnormalized_token_probs,
-        labels=input_sequences
-    )
-    mask = tf.sequence_mask(sequence_lengths, max_length, dtype=tf.float32)
-
-    masked = (mask * ce_losses)
-    sums = tf.reduce_mean(masked, axis=-1)
-    return sums
-
-
-def compute_attention_vector(previous_hidden_states, unnormalized_attention_coefs):
-    attention_coefs = tf.nn.softmax(
-        unnormalized_attention_coefs, dim=-1
-    )
-    return tf.reduce_sum(
-        tf.multiply(
-            previous_hidden_states,
-            tf.expand_dims(attention_coefs, -1)
-        ),
-        axis=1
-    )
-
-
 def simple_attention_coefs(previous_hidden_states, h, reuse, name_suffix=''):
+    """
+    computes the cosine similarity beween h^T * W and all previous hidden_states
+    """
     name_suffix = '_' + name_suffix if name_suffix else name_suffix
     h_proj = fully_connected(
         h,
@@ -112,11 +90,21 @@ def simple_attention_coefs(previous_hidden_states, h, reuse, name_suffix=''):
         'simple_attention' + name_suffix,
         reuse=reuse
     )
+    h_proj_normalized = tf.nn.l2_normalize(h_proj, -1)
+
     unnormalized_coefs = []
     for i in range(previous_hidden_states.get_shape()[1].value):
         h_prev = previous_hidden_states[:, i]
-        unnormalized_coefs += [tf.reduce_sum(tf.multiply(h_proj, h_prev), axis=1)]
-
+        h_prev_normalized = tf.nn.l2_normalize(h_prev, -1)
+        # unnormalized_coefs += [tf.losses.cosine_distance(
+        #     h_proj_normalized, h_prev_normalized,
+        #     dim=-1,
+        #     loss_collection=None
+        # )]
+        # unnormalized_coefs += [tf.reduce_sum(tf.multiply(h_proj, h_prev), axis=1)]
+        unnormalized_coefs += [tf.reduce_sum(
+            tf.multiply(h_proj_normalized, h_prev_normalized), axis=1
+        )]
     return tf.stack(
         unnormalized_coefs, axis=1
     )
@@ -144,28 +132,6 @@ def fully_connected(
         )
     return tf.matmul(input, weights) + bias
 
-
-def get_batch_lengths(batch):
-    is_padding = batch[:, :, 0]
-    # add one to the value so the final 'nothing' character is added
-    return (batch.shape[1] - is_padding.sum(axis=1)) + 1
-
-
-def resampling(mus_and_log_sigs):
-    """
-    Batch resampling operation, mus_and_log_sigs of shape (b x z_size*2)
-    """
-    z_size = mus_and_log_sigs.get_shape()[-1].value // 2
-    mus = mus_and_log_sigs[:, :z_size]
-    log_sigs = mus_and_log_sigs[:, z_size:]
-
-    z_resampled = vae_resampling(mus, log_sigs, epsilon_std=0.01)
-    return z_resampled
-
-
-def get_sequence_lengths(x):
-    is_padding = x[:, :, 0]
-    return (x.get_shape()[1].value - tf.reduce_sum(is_padding, axis=1)) + 1
 
 
 def default_lstm_cell(size, activation=tf.tanh):
