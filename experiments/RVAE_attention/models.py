@@ -1,5 +1,6 @@
 import project_context  # NOQA
 import tensorflow as tf
+import numpy as np
 from tqdm import tqdm
 
 from model_utils.ops import (
@@ -96,15 +97,22 @@ def simple_attention_coefs(previous_hidden_states, h, reuse, name_suffix=''):
     for i in range(previous_hidden_states.get_shape()[1].value):
         h_prev = previous_hidden_states[:, i]
         h_prev_normalized = tf.nn.l2_normalize(h_prev, -1)
-        # unnormalized_coefs += [tf.losses.cosine_distance(
-        #     h_proj_normalized, h_prev_normalized,
-        #     dim=-1,
-        #     loss_collection=None
-        # )]
-        # unnormalized_coefs += [tf.reduce_sum(tf.multiply(h_proj, h_prev), axis=1)]
-        unnormalized_coefs += [tf.reduce_sum(
+        unscaled_coef = tf.reduce_sum(
             tf.multiply(h_proj_normalized, h_prev_normalized), axis=1
-        )]
+        )
+
+        # Use the dynamic sofmax with m=sqrt(l) and epsilon=0.001
+        l = previous_hidden_states.get_shape()[1].value
+        if l > 1:
+            epsilon = 0.001
+            m = np.sqrt(l)
+            dynamic_scaling_factor = 0.5 * np.log(
+                ((1 - epsilon) * (l - m)) / (epsilon * m)
+            )
+        else:
+            dynamic_scaling_factor = 1
+
+        unnormalized_coefs += [dynamic_scaling_factor * unscaled_coef]
     return tf.stack(
         unnormalized_coefs, axis=1
     )
@@ -127,11 +135,10 @@ def fully_connected(
         )
         bias = tf.get_variable(
             'bias',
-            (),
+            (output_size,),
             initializer=initializer
         )
     return tf.matmul(input, weights) + bias
-
 
 
 def default_lstm_cell(size, activation=tf.tanh):
