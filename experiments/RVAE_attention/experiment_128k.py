@@ -84,22 +84,8 @@ def run_experiment(option):
     )
     print('training...')
     with sv.managed_session() as sess:
-        best_loss_so_far = 100
-        num_steps_until_best = 0
-
-        i = -1
         while not sv.should_stop():
-            i += 1
-
             total_loss, _ = sess.run([total_loss_op, train_op])
-            # Stop if loss does not improve after some steps
-            if total_loss < best_loss_so_far:
-                best_loss_so_far = total_loss
-                num_steps_until_best = 0
-            else:
-                num_steps_until_best += 1
-                if num_steps_until_best == NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT:
-                    exit()
 
 
 
