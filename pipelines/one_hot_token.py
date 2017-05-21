@@ -7,12 +7,13 @@ from .data_sources import HuzzerSource, TokenDatasource, OneHotVecotorizer
 def one_hot_token_pipeline(
     ttv=None,
     for_cnn=True,
-    length=256
+    length=256,
+    huzzer_kwargs={}
 ):
     """
     """
     data_source = OneHotVecotorizer(
-        TokenDatasource(HuzzerSource()),
+        TokenDatasource(HuzzerSource(huzzer_kwargs)),
         54,
         length
     )
@@ -28,8 +29,11 @@ def one_hot_token_random_batcher(
     number_of_batches,
     length,
     cache_path=None,
+    huzzer_kwargs={}
 ):
-    data_source = one_hot_token_pipeline(for_cnn=False, length=length)
+    data_source = one_hot_token_pipeline(
+        for_cnn=False, length=length, huzzer_kwargs=huzzer_kwargs
+    )
 
     fs_data_source = FixedSizeArrayDatasource(data_source, batch_size * number_of_batches)
 
@@ -76,9 +80,10 @@ def one_hot_variable_length_token_dataset(
     batch_size,
     number_of_batches,
     cache_path=None,
-    zero_front_pad=0
+    zero_front_pad=0,
+    huzzer_kwargs={}
 ):
-    token_pipeline = one_hot_token_pipeline(for_cnn=False, length=None)
+    token_pipeline = one_hot_token_pipeline(for_cnn=False, length=None, huzzer_kwargs=huzzer_kwargs)
 
     if zero_front_pad > 0:
         token_pipeline = LambdaDatasource(token_pipeline, pad_zeros(zero_front_pad))

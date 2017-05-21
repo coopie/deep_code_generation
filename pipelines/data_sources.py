@@ -6,10 +6,20 @@ import numpy as np
 import logging
 
 
+BASIC_DATASET_ARGS = {
+    'max_expression_depth': 3,
+    'max_type_signiature_length': 2,
+    'max_number_of_functions': 2
+}
+
+
 class HuzzerSource(Datasource):
+    def __init__(self, huzzer_kwargs={}):
+        self.huzzer_kwargs = huzzer_kwargs
+
     def _process(self, ident):
         assert ident.isdigit(), 'huzzer got {}, when it should take a number'.format(ident)
-        return huzzer(int(ident))
+        return huzzer(int(ident), **self.huzzer_kwargs)
 
 
 class CharSplitter(Datasource):
@@ -86,29 +96,29 @@ class TokenDatasource(Datasource):
 class OneHotVecotorizer(Datasource):
     """
     Get a source of tokens of `alphabet_size` sized alphabet. Turn it into
-    one hot vectors. If max_len is specified, then vectors are padded with
-    empty vectors, and sentences generated longer or equal to `max_len` cause the
+    one hot vectors. If length_cap is specified, then vectors are padded with
+    empty vectors, and sentences generated longer or equal to `length_cap` cause the
     Datasource to get a deteministically random 'other' key.
 
     If `max_len` is None, a single empty vector is added to the end to represent
     an end token
     """
-    def __init__(self, ds, alphabet_size, max_len=None):
+    def __init__(self, ds, alphabet_size, length_cap=None):
         self.ds = ds
         self.alphabet_size = alphabet_size
-        self.max_len = max_len
+        self.length_cap = length_cap
         self.rand = Random()
 
     def _process(self, key):
         sentence = self.ds[key]
-        if self.max_len is not None and len(sentence) >= self.max_len:
+        if self.length_cap is not None and len(sentence) >= self.length_cap:
             self.rand.seed(int(key))
             new_key = self.rand.randint(0, 2**30)
             logging.debug('{} is too long!, getting {}'.format(key, new_key))
             return self[str(new_key)]
 
         # final token needs to be a 'finish' token
-        array_len = self.max_len if self.max_len is not None else (len(sentence) + 1)
+        array_len = self.length_cap if self.length_cap is not None else (len(sentence) + 1)
         arr = np.zeros((array_len, self.alphabet_size), dtype=np.uint8)
         arr[range(len(sentence)), sentence] = 1
 

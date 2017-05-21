@@ -1,10 +1,25 @@
-import project_context  # NOQA
+"""
+Attention experiments:
+
+Usage:
+    experiment_128k.py [--basic] <option>
+    experiment_128k.py -h | --help
+
+Options:
+    -h --help   Show this screen.
+    -b --basic  Use the basic huzzer dataset.
+
+"""
+
 from sys import argv
 import numpy as np
 import os
+from docopt import docopt
 
 import logging
+import project_context  # NOQA
 from pipelines.one_hot_token import one_hot_token_random_batcher
+from pipelines.data_sources import BASIC_DATASET_ARGS
 from model_utils.queues import build_single_output_queue
 from model_utils.loss_functions import kl_divergence, ce_loss_for_sequence_batch
 from model_utils.ops import get_sequence_lengths, resampling
@@ -21,23 +36,29 @@ slim = tf.contrib.slim
 BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
 TOKEN_EMB_SIZE = 54  # Using categorical labels for the finite subsetset of haskell
-NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT = 3000  # stop if no improvement after an epoch
+BATCH_SIZE = 128
+NUMBER_BATCHES = 1000
 
 
-def run_experiment(option):
-    BATCH_SIZE = 128
-    NUMBER_BATCHES = 1000
-    SEQUENCE_CAP = 130
+def run_experiment(option, use_basic_dataset):
+    sequence_cap = 56 if use_basic_dataset else 130
     print('Setting up data pipeline...')
+
+    huzzer_kwargs = BASIC_DATASET_ARGS if use_basic_dataset else {}
     datasource = one_hot_token_random_batcher(
         BATCH_SIZE,
         NUMBER_BATCHES,
-        length=SEQUENCE_CAP,
-        cache_path='attention_models{}_{}'.format(NUMBER_BATCHES, BATCH_SIZE)
+        length=sequence_cap,
+        cache_path='attention_models_{}_{}_{}'.format(
+            'basic' if use_basic_dataset else 'standard',
+            NUMBER_BATCHES,
+            BATCH_SIZE
+        ),
+        huzzer_kwargs=huzzer_kwargs
     )
     queue = build_single_output_queue(
         datasource,
-        output_shape=(BATCH_SIZE, SEQUENCE_CAP, TOKEN_EMB_SIZE),
+        output_shape=(BATCH_SIZE, sequence_cap, TOKEN_EMB_SIZE),
         type=tf.uint8
     )
     raw_input_sequences = queue.dequeue(name='input_sequence')
@@ -52,14 +73,14 @@ def run_experiment(option):
         encoder_output = build_single_program_encoder(input_sequences, sequence_lengths, z_size)
         z_resampled = resampling(encoder_output)
         decoder_output = build_attention1_decoder(
-            z_resampled, sequence_lengths, SEQUENCE_CAP, TOKEN_EMB_SIZE
+            z_resampled, sequence_lengths, sequence_cap, TOKEN_EMB_SIZE
         )
         cross_entropy_loss = tf.reduce_mean(
             ce_loss_for_sequence_batch(
                 decoder_output,
                 input_sequences,
                 sequence_lengths,
-                SEQUENCE_CAP
+                sequence_cap
             )
         )
         kl_loss = tf.reduce_mean(kl_divergence(encoder_output))
@@ -71,7 +92,7 @@ def run_experiment(option):
     tf.summary.scalar('cross_entropy_loss', cross_entropy_loss)
     tf.summary.scalar('kl_loss', kl_loss)
     tf.summary.scalar('total_loss', total_loss_op)
-    logdir = os.path.join(BASEDIR, option)
+    logdir = os.path.join(BASEDIR, ('basic_' if use_basic_dataset else '') + option)
 
     optimizer = tf.train.AdamOptimizer(1e-3)
     print('creating train op...')
@@ -88,16 +109,15 @@ def run_experiment(option):
             total_loss, _ = sess.run([total_loss_op, train_op])
 
 
-
-
 if __name__ == '__main__':
     logging.basicConfig(
         format='%(asctime)s %(message)s',
         datefmt='%m/%d/%Y %I:%M:%S %p',
         level=logging.INFO
     )
-    args = argv[1:]
-    assert len(args) == 1, 'You must provide one argument'
-    option = args[0]
+    args = docopt(__doc__, version='N/A')
 
-    run_experiment(option)
+    option = args.get('<option>')
+    use_basic_dataset = args.get('--basic')
+
+    run_experiment(option, use_basic_dataset)
