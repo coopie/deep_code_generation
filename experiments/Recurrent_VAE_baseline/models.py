@@ -46,7 +46,7 @@ def build_program_encoder(rnn_cell):
     )
 
 
-def build_program_decoder(token_emb_size, rnn_cell):
+def build_program_decoder(token_emb_size, rnn_cell, just_tokens=False):
     """
     Used for blind or 'look-behind' decoders
     """
@@ -63,11 +63,15 @@ def build_program_decoder(token_emb_size, rnn_cell):
         token_emb_size,
         activation=tf.nn.relu,
         initializer=tf.contrib.layers.xavier_initializer(),
-        name='encoder_fc'
+        name='encoder_fc'  # this is fantastic
     )
 
-    un_normalised_token_probs = decoder_rnn_output >> td.Map(fc_layer)
-    return un_normalised_token_probs
+    # un_normalised_token_probs = decoder_rnn_output >> td.Map(fc_layer)
+    if just_tokens:
+        return decoder_rnn_output >> td.Map(fc_layer)
+    else:
+        return decoder_rnn_output >> td.AllOf(td.Map(fc_layer), td.Identity())
+    # return un_normalised_token_probs
 
 
 def build_token_level_RVAE(z_size, token_emb_size, look_behind_length):
@@ -94,7 +98,7 @@ def build_token_level_RVAE(z_size, token_emb_size, look_behind_length):
 
         # build decoder block
         un_normalised_token_probs = build_program_decoder(
-            token_emb_size, default_gru_cell(z_size)
+            token_emb_size, default_gru_cell(z_size), just_tokens=True
         )
 
         # remove padding for input sequence

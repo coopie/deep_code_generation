@@ -47,7 +47,7 @@ def run_experiment(option, use_basic_dataset):
         num_grus = int(option.split('_')[-1])
         network_block = build_token_level_RVAE(num_grus, TOKEN_EMB_SIZE, look_behind_length=0)
         train_block = build_train_graph_for_RVAE(network_block)
-    if option.startswith('single_layer_gru_look_behind_'):
+    elif option.startswith('single_layer_gru_look_behind_'):
         num_grus = int(option.split('_')[-1])
         look_behind = int(option.split('_')[-2])
         network_block = build_token_level_RVAE(
@@ -140,7 +140,6 @@ def run_experiment(option, use_basic_dataset):
                 num_steps_until_best += 1
                 if num_steps_until_best == NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT:
                     exit()
-            exit('succes')
 
 
 if __name__ == '__main__':
