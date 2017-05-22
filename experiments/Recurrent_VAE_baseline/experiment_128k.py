@@ -1,9 +1,25 @@
-import project_context  # NOQA
+"""
+Baseline RVAE experiments:
+Experiments using a limited dataset if 128000 examples
+
+Usage:
+    experiment_128k.py [--basic] <option>
+    experiment_128k.py -h | --help
+
+Options:
+    -h --help   Show this screen.
+    -b --basic  Use the basic huzzer dataset.
+
+
+"""
+from docopt import docopt
 from sys import argv
 import numpy as np
 
 import logging
+import project_context  # NOQA
 from pipelines.one_hot_token import one_hot_variable_length_token_dataset
+from pipelines.data_sources import BASIC_DATASET_ARGS
 import tensorflow_fold as td
 
 from models import (
@@ -21,7 +37,7 @@ TOKEN_EMB_SIZE = 54  # Using categorical labels for the finite subsetset of hask
 NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT = 3000  # stop if no improvement after an epoch
 
 
-def run_experiment(option):
+def run_experiment(option, use_basic_dataset):
     BATCH_SIZE = 128
     NUMBER_BATCHES = 1000
 
@@ -43,6 +59,7 @@ def run_experiment(option):
         exit(1)
 
     print('Setting up data pipeline...')
+    huzzer_kwargs = BASIC_DATASET_ARGS if use_basic_dataset else {}
     # the generator for fold needs one example at a time,
     dataset = one_hot_variable_length_token_dataset(
         batch_size=1,
@@ -50,7 +67,8 @@ def run_experiment(option):
         cache_path='one_hot_token_variable_length_haskell_batch{}_number{}_lookbehind{}'.format(
             1, NUMBER_BATCHES * BATCH_SIZE, look_behind
         ),
-        zero_front_pad=look_behind
+        zero_front_pad=look_behind,
+        huzzer_kwargs=huzzer_kwargs
     )
 
     # Generator that gets examples
@@ -58,7 +76,9 @@ def run_experiment(option):
         while True:
             yield np.squeeze(dataset()[0], axis=0)
 
-    logdir = 'experiments/Recurrent_VAE_baseline/{}'.format(option)
+    logdir = 'experiments/Recurrent_VAE_baseline/{}{}'.format(
+        'basic_' if use_basic_dataset else '', option
+    )
 
     # compile and build the train op
     compiler = td.Compiler.create(train_block)
@@ -120,6 +140,7 @@ def run_experiment(option):
                 num_steps_until_best += 1
                 if num_steps_until_best == NUM_STEPS_TO_STOP_IF_NO_IMPROVEMENT:
                     exit()
+            exit('succes')
 
 
 if __name__ == '__main__':
@@ -128,8 +149,8 @@ if __name__ == '__main__':
         datefmt='%m/%d/%Y %I:%M:%S %p',
         level=logging.INFO
     )
-    args = argv[1:]
-    assert len(args) == 1, 'You must provide one argument'
-    option = args[0]
+    args = docopt(__doc__, version='N/A')
 
-    run_experiment(option)
+    option = args.get('<option>')
+    use_basic_dataset = args.get('--basic')
+    run_experiment(option, use_basic_dataset)

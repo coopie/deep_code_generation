@@ -1,7 +1,0 @@
-module Generated (function0,function1) where 
-
-function0 :: Int -> Int
-function0 a = (fromEnum ((a == (a * a)) || (1 < a)))
-
-function1 :: Bool -> Int -> Int
-function1 a b = (min (max 1 b) (function0 b))
