@@ -58,8 +58,11 @@ def one_hot_token_dataset(
     number_of_batches,
     length=128,
     cache_path=None,
+    huzzer_kwargs={}
 ):
-    data_source = one_hot_token_pipeline(for_cnn=False, length=length)
+    data_source = one_hot_token_pipeline(
+        for_cnn=False, length=length, huzzer_kwargs=huzzer_kwargs
+    )
 
     fs_data_source = FixedSizeArrayDatasource(data_source, batch_size * number_of_batches)
 

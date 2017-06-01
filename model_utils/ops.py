@@ -41,4 +41,4 @@ def compute_attention_vector(previous_hidden_states, unnormalized_attention_coef
             tf.expand_dims(attention_coefs, -1)
         ),
         axis=1
-    )
+    ), attention_coefs

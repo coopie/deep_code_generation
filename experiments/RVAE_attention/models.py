@@ -29,6 +29,8 @@ def build_attention1_decoder(z, sequence_lengths, max_length, token_emb_size):
     c_state = rnn_cell.zero_state(batch_size, dtype=tf.float32).c
     attention_v = tf.zeros(tf.shape(z))
 
+    attention_weights = []
+
     pbar = tqdm(desc='Building decoder ops', total=sum(range(max_length+1)))
     for i in range(max_length):
         # compute h_{i+1}
@@ -51,10 +53,11 @@ def build_attention1_decoder(z, sequence_lengths, max_length, token_emb_size):
                 h_state,
                 reuse=i > 0
             )
-            attention_v = compute_attention_vector(
+            attention_v, weights = compute_attention_vector(
                 hidden_states,
                 unnormalized_attention_coefs
             )
+            attention_weights += [weights]
 
         # Add h_i to hidden states
         hidden_states = tf.concat(
@@ -63,7 +66,7 @@ def build_attention1_decoder(z, sequence_lengths, max_length, token_emb_size):
         )
         pbar.update(i+1)
     pbar.close()
-    return tf.stack(unnormalized_token_probs, axis=1)
+    return tf.stack(unnormalized_token_probs, axis=1), attention_weights
 
 
 def build_single_program_encoder(input_sequences, sequence_lengths, z_size):

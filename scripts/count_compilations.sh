@@ -2,6 +2,7 @@
 
 # currently only works for autoencoded examples
 EXAMPLES_DIR=$1
+GENERATED_CODE_NAME=$2
 
 if [ -z "$EXAMPLES_DIR" ]
 then
@@ -27,8 +28,8 @@ compile_check () {
 }
 export -f compile_check
 
-(ls $EXAMPLES_DIR/autoencoded | parallel --joblog log.txt --progress --bar compile_check $EXAMPLES_DIR/autoencoded/{}/autoencoded_code.hs) > $EXAMPLES_DIR/autoencoded/compiled_examples.txt
+(ls $EXAMPLES_DIR | parallel --joblog log.txt --progress --bar compile_check $EXAMPLES_DIR/{}/$GENERATED_CODE_NAME) > $EXAMPLES_DIR/compiled_examples.txt
 
-NUM_COMPILED=`cat $EXAMPLES_DIR/autoencoded/compiled_examples.txt | wc -l`
+NUM_COMPILED=`cat $EXAMPLES_DIR/compiled_examples.txt | wc -l`
 
-echo "$NUM_COMPILED autoencoded examples compiled"
+echo "$NUM_COMPILED examples compiled"

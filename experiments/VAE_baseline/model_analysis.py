@@ -4,8 +4,17 @@ Makes examples of computed values of an autoencoder
 * an autoencoded examples
 * generated from a random latent vecor
 * a markov chain generated vector
+
+Usage:
+    model_analysis.py [--basic] <option>
+    model_analysis.py -h | --help
+
+Options:
+    -h --help   Show this screen.
+    -b --basic  Use the basic huzzer dataset.
+
 """
-import project_context  # NOQA
+from docopt import docopt
 from sys import argv
 from tqdm import trange
 from scipy.misc import imsave
@@ -13,7 +22,11 @@ import os
 import errno
 import numpy as np
 from random import randint
+import project_context  # NOQA
 from huzzer.tokenizing import TOKEN_MAP
+
+from pipelines.data_sources import BASIC_DATASET_ARGS
+from pipelines.one_hot_token import one_hot_token_dataset
 
 import tensorflow as tf
 from tensorflow.contrib import slim
@@ -37,70 +50,95 @@ from models import (  # NOQA
 
 BASEDIR = 'experiments/VAE_baseline/'
 
+NUMBER_OF_EXAMPLES = 10
 
-def generate_code(option, num_examples):
-    if option == 'simple':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple()
-    elif option == 'conv1':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv1()
-    elif option == 'conv2':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv2()
-    elif option == 'conv3':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv3()
-    elif option == 'conv4':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv4()
-    elif option == 'simple_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss()
-    elif option == 'simple_double_latent_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(64)
-    elif option == 'simple_256_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
-    elif option == 'simple_256_1k':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
-    elif option == 'simple_1024_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    elif option == 'simple_1024_10k':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    elif option == 'simple_1024_1k':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    elif option == 'simple_1024_no_limit_1k':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    elif option == 'simple_8192_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(8192)
-    elif option == 'conv_special_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
-    elif option == 'conv_special_low_kl_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
-    elif option == 'conv_special2_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2()
-    elif option == 'conv_special2_l1_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2_l1()
-    elif option == 'conv_special3_l1_128_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(128)
-    elif option == 'conv_special3_l1_256_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(256)
-    elif option == 'conv_special3_big_l1_512_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(
-            512, filter_length=10
-        )
-    elif option == 'conv_special4_l1_1024_sss':
-        data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv4_l1(
-            1024, filter_length=3, num_filters=256
-        )
+def analyze_model(option, use_basic_dataset):
+    # if option == 'simple':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple()
+    # elif option == 'conv1':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv1()
+    # elif option == 'conv2':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv2()
+    # elif option == 'conv3':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv3()
+    # elif option == 'conv4':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv4()
+    # elif option == 'simple_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss()
+    # elif option == 'simple_double_latent_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(64)
+    # elif option == 'simple_256_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
+    # elif option == 'simple_256_1k':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
+    # elif option == 'simple_1024_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    # elif option == 'simple_1024_10k':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    # elif option == 'simple_1024_1k':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    # elif option == 'simple_1024_no_limit_1k':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
+    # elif option == 'simple_8192_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(8192)
+    # elif option == 'conv_special_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
+    # elif option == 'conv_special_low_kl_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
+    # elif option == 'conv_special2_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2()
+    # elif option == 'conv_special2_l1_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2_l1()
+    # elif option == 'conv_special3_l1_128_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(128)
+    # elif option == 'conv_special3_l1_256_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(256)
+    # elif option == 'conv_special3_big_l1_512_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(
+    #         512, filter_length=10
+    #     )
+    # elif option == 'conv_special4_l1_1024_sss':
+    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv4_l1(
+    #         1024, filter_length=3, num_filters=256
+    #     )
+    # else:
+    sequence_cap = 56 if use_basic_dataset else 130
+
+    if option.startswith('simple'):
+        z_size = int(option.split('_')[1])
+        _, encoder_input, encoder_output, decoder_input, decoder_output = make_simple(z_size, sequence_cap)
     else:
-        print('INVALID OPTION')
+        print('INVALID OPTION {}'.format(option))
         exit()
+
+    model_directory = ('basic_' if use_basic_dataset else '') + option
+
+    huzzer_kwargs = BASIC_DATASET_ARGS if use_basic_dataset else {}
+    sequence_cap = 56 if use_basic_dataset else 130
+
+    print('Setting up data pipeline...')
+    dataset = one_hot_token_dataset(
+        batch_size=1,
+        number_of_batches=1000,
+        cache_path='{}model_analysis_simple'.format(
+            'basic_' if use_basic_dataset else ''
+        ),
+        length=sequence_cap,
+        huzzer_kwargs=huzzer_kwargs
+    )
 
     saver = tf.train.Saver()
     with tf.Session() as sess:
 
+        restore_dir = tf.train.latest_checkpoint(BASEDIR + '{}'.format(model_directory))
+        print('resoring sesstion at : ' + restore_dir)
         saver.restore(
-            sess, tf.train.latest_checkpoint(BASEDIR + '{}'.format(option))
+            sess, restore_dir
         )
 
-        def g(latent_rep=None):
+        def g(latent_rep=None, variance=1):
             if latent_rep is None:
-                latent_rep = np.random.normal(0, 1, decoder_input.get_shape()[-1].value)
+                latent_rep = np.random.normal(0, variance, decoder_input.get_shape()[-1].value)
             generated = sess.run(
                 decoder_output,
                 feed_dict={
@@ -123,18 +161,20 @@ def generate_code(option, num_examples):
             return encoded, example_data
 
         examples_dir = BASEDIR + '{}_examples'.format(option)
-        latent_sampling_dir = examples_dir + '/latent_sampling/'
+        latent_sampling_dir = examples_dir + '/generated/'
         autoencoded_dir = examples_dir + '/autoencoded/'
-        markov_generating_dir = examples_dir + '/markov_generating/'
+        # markov_generating_dir = examples_dir + '/markov_generating/'
 
         mkdir_p(examples_dir)
         mkdir_p(latent_sampling_dir)
         mkdir_p(autoencoded_dir)
         mkdir_p(markov_generating_dir)
 
-        for i in trange(num_examples):
-            example_dir = '{}/{}/'.format(autoencoded_dir, i)
-            mkdir_p(example_dir)
+        #  Autoencode bit
+
+        for i in trange(NUMBER_OF_EXAMPLES):
+            dir_for_example = os.path.join(autoencoded_dir, str(i))
+            mkdir_p(dir_for_example)
             example_input = data_pipeline[str(i)].astype('float32')
             input_text = example_to_code(example_input)
 
@@ -143,18 +183,18 @@ def generate_code(option, num_examples):
             latent_image = latent_rep.reshape((latent_rep.size // 32, 32))
 
             imsave(
-                example_dir + '{}_latent.png'.format(i),
+                dir_for_example + '/{}_latent.png'.format(i),
                 latent_image
             )
             reconstrcted_tokens, _ = g(latent_rep)
             autoencoded_text = example_to_code(reconstrcted_tokens)
-            imsave(example_dir + '{}_input.png'.format(i), example_input.T)
-            imsave(example_dir + '{}_output.png'.format(i), reconstrcted_tokens.T)
+            imsave(dir_for_example + '/input.png', example_input.T)
+            imsave(dir_for_example + '/decoder_output.png', reconstrcted_tokens.T)
 
-            with open(example_dir + '{}_input.hs'.format(i), 'w') as f:
+            with open(dir_for_example + '/input.hs', 'w') as f:
                 f.write(input_text)
 
-            with open(example_dir + '{}_output.hs'.format(i), 'w') as f:
+            with open(dir_for_example + '/autoencoded_code.hs', 'w') as f:
                 f.write(autoencoded_text)
 
 
@@ -170,7 +210,7 @@ def token_to_string(t):
     return TOKEN_MAP[t]
 
 
-def make_simple():
+def make_simple(latent_dim, sequence_length):
     huzz = HuzzerSource()
     data_pipeline = OneHotVecotorizer(
         TokenDatasource(huzz),
@@ -178,8 +218,7 @@ def make_simple():
         256
     )
 
-    x_shape = (256, 54)
-    latent_dim = 16
+    x_shape = (sequence_length, 54)
     encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
     x_flat = slim.flatten(encoder_input)
     z = slim.fully_connected(
@@ -187,9 +226,8 @@ def make_simple():
     )
     encoder_output = tf.identity(z, 'this_is_output')
 
-    decoder_input = tf.placeholder(tf.float32, shape=(1, 16), name='decoder_input')
-    decoder_output = build_decoder(decoder_input, (256, 54))
-    latent_dim = 16
+    decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+    decoder_output = build_decoder(decoder_input, x_shape)
     return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
 
 
@@ -430,11 +468,7 @@ def mkdir_p(path):
 
 
 if __name__ == '__main__':
-    args = argv[1:]
-    assert len(args) == 2, 'you must give a experiment type and a number of examples'
-    option, num_examples = args
-
-    num_examples = int(num_examples)
-
-    with tf.Graph().as_default():
-        generate_code(option, num_examples)
+    args = docopt(__doc__, version='N/A')
+    option = args.get('<option>')
+    use_basic_dataset = args.get('--basic')
+    analyze_model(option, use_basic_dataset)

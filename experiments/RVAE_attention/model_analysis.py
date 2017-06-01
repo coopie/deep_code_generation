@@ -1,50 +1,92 @@
+"""
+Model analysis for attention experiments:
+
+Usage:
+    experiment_128k.py [--basic] <option>
+    experiment_128k.py -h | --help
+
+Options:
+    -h --help   Show this screen.
+    -b --basic  Use the basic huzzer dataset.
+
+"""
+
+from docopt import docopt
 from huzzer.tokenizing import TOKEN_MAP
 from tqdm import tqdm
-from sys import argv
 import errno
 import numpy as np
 import os
 from os.path import join
 import tensorflow as tf
-import tensorflow_fold as td
 from scipy.misc import imsave
+import matplotlib.pyplot as plt
+import matplotlib
 
 import project_context  # NOQA
-from pipelines.one_hot_token import one_hot_variable_length_token_dataset
+from pipelines.data_sources import BASIC_DATASET_ARGS
+from pipelines.one_hot_token import one_hot_token_dataset
+from model_utils.ops import get_sequence_lengths
 from models import (
-    default_gru_cell,
-    build_program_encoder,
-    resampling
+    build_single_program_encoder,
+    build_attention1_decoder
 )
 
-BASEDIR = os.path.dirname(os.path.realpath(__file__))
 
-
-def analyze_model(option):
+def analyze_model(option, use_basic_dataset):
+    BASEDIR = os.path.dirname(os.path.realpath(__file__))
+    sequence_cap = 56 if use_basic_dataset else 130
     TOKEN_EMB_SIZE = 54
-    NUMBER_OF_EXAMPLES = 100
+    NUMBER_OF_EXAMPLES = 1000
 
-    if option.startswith('single_layer_gru_blind_'):
-        # TODO: this is old naming convention
-        look_behind = 0
+    if option.startswith('attention1'):
         z_size = int(option.split('_')[-1])
-        directory = 'single_layer_gru_{}'.format(z_size)
-        encoder_block = build_encoder(z_size, TOKEN_EMB_SIZE)
-        decoder_block = build_blind_decoder_block(
-            z_size, TOKEN_EMB_SIZE
+        directory = '{}{}'.format(
+            'basic_' if use_basic_dataset else '',
+            option
         )
+        input_sequence_t = tf.placeholder(
+            shape=[1, sequence_cap, TOKEN_EMB_SIZE],
+            dtype=tf.float32,
+            name='input_sequence'
+        )
+        sequence_lengths_t = get_sequence_lengths(
+            tf.cast(input_sequence_t, tf.int32)
+        )
+        mus_and_log_sigs = build_single_program_encoder(
+            input_sequence_t,
+            sequence_lengths_t,
+            z_size
+        )
+        z = mus_and_log_sigs[:, :z_size]
+        decoder_input = tf.placeholder(
+            shape=[1, z_size],
+            dtype=tf.float32,
+            name='decoder_input'
+        )
+        decoder_output, attention_weights_t = build_attention1_decoder(
+            decoder_input,
+            sequence_lengths_t,
+            sequence_cap,
+            TOKEN_EMB_SIZE
+        )
+        token_probs_t = tf.nn.softmax(decoder_output)
+
         print('z_size={}'.format(z_size))
     else:
         exit('invalid option')
 
+    huzzer_kwargs = BASIC_DATASET_ARGS if use_basic_dataset else {}
+
     print('Setting up data pipeline...')
-    dataset = one_hot_variable_length_token_dataset(
+    dataset = one_hot_token_dataset(
         batch_size=1,
         number_of_batches=1000,
-        cache_path='one_hot_token_variable_length_haskell_batch{}_number{}_lookbehind{}'.format(
-            1, 1000, look_behind
+        cache_path='{}model_analysis_attention'.format(
+            'basic_' if use_basic_dataset else ''
         ),
-        zero_front_pad=look_behind
+        length=sequence_cap,
+        huzzer_kwargs=huzzer_kwargs
     )
 
     def get_input():
@@ -52,145 +94,86 @@ def analyze_model(option):
 
     path = join(BASEDIR, directory)
 
-    encoder_graph = td.Compiler.create(encoder_block)
-    (mus_and_log_sigs,) = encoder_graph.output_tensors
-
-    decoder_graph = td.Compiler.create(decoder_block)
-    un_normalised_token_probs, hidden_state_t = decoder_graph.output_tensors
-    token_probs_t = tf.nn.softmax(un_normalised_token_probs)
-
-    # Build resampling op
-    resampling_input, resample_op = build_resampling_op(z_size)
-
     saver = tf.train.Saver()
 
     examples = [get_input() for i in range(NUMBER_OF_EXAMPLES)]
-    fold_inputs = encoder_graph.build_loom_inputs(examples)
 
     sess = tf.Session()
+    print('Restoring variables...')
     saver.restore(
         sess, tf.train.latest_checkpoint(path, 'checkpoint.txt')
     )
-    # Autoencode_bit
-    examples_dir = join(BASEDIR, option + '_examples')
+    examples_dir = join(BASEDIR, 'basic_' if use_basic_dataset else '' + option + '_examples')
     mkdir_p(examples_dir)
 
+    # Autoencode_bit
     autoencoded_examples_path = join(examples_dir, 'autoencoded')
-    message = 'Autencoding {} examples to {}'.format(
-        len(examples), autoencoded_examples_path
+    message = 'Autencoding {} examples'.format(
+        len(examples),
     )
-    for i, (fold_batch, input_sequence) in enumerate(tqdm(
-        zip(
-            td.group_by_batches(fold_inputs, 1), examples
-        ),
-        desc=message, total=len(examples)
+    for i, input_sequence in enumerate(tqdm(
+        examples, desc=message, total=len(examples)
     )):
         dir_for_example = join(autoencoded_examples_path, str(i))
         mkdir_p(dir_for_example)
 
-        p_of_z = sess.run(mus_and_log_sigs, feed_dict={
-            encoder_graph.loom_input_tensor: fold_batch
+        z_mus, length = sess.run([z, sequence_lengths_t], feed_dict={
+            input_sequence_t: np.expand_dims(input_sequence, 0),
         })
-        mus = p_of_z[:, :z_size]
 
-        fd = decoder_graph.build_feed_dict([
-            (mus.squeeze(axis=0), [np.zeros((0,))])
-        ])
-
-        token_probs, hidden_state = sess.run(
-            [token_probs_t, hidden_state_t],
-            feed_dict=fd
+        token_probs, attention_weights = sess.run(
+            [token_probs_t, attention_weights_t],
+            feed_dict={
+                decoder_input: z_mus
+            }
         )
+        length = np.squeeze(length)
+        token_probs = np.squeeze(token_probs)[:length]
+        attention_weights = attention_weights[:length]
+        input_sequence = input_sequence[:length]
+
+        input_code = example_to_code(input_sequence)
+        output_code = example_to_code(token_probs)
+        visualize_attention_weights(output_code, attention_weights, join(dir_for_example, 'attention_weights'))
+
         input_code = example_to_code(input_sequence)
         write_to_file(join(dir_for_example, 'input.hs'), input_code)
         imsave(join(dir_for_example, 'input.png'), input_sequence.T)
-        imsave(join(dir_for_example, 'z.png'), mus.reshape((mus.size // 32, 32)))
+        imsave(join(dir_for_example, 'z.png'), z_mus.reshape((z_mus.size // 32, 32)))
 
-        # TODO: make this a random sample
-        tokens_probs = [token_probs]
-        text_so_far = [one_hot(TOKEN_EMB_SIZE, token_probs.squeeze().argmax())]
-        for _ in range(len(input_sequence) - 1):
-            fd = decoder_graph.build_feed_dict([
-                (hidden_state.squeeze(), [np.zeros((0,))])
-            ])
+        imsave(join(dir_for_example, 'decoder_output.png'), token_probs.T)
+        write_to_file(join(dir_for_example, 'autoencoded_code.hs'), output_code)
 
-            token_probs, hidden_state = sess.run(
-                [token_probs_t, hidden_state_t],
-                feed_dict=fd
-            )
-            tokens_probs += [token_probs]
-            text_so_far += [one_hot(TOKEN_EMB_SIZE, token_probs.squeeze().argmax())]
-
-        decoder_output = np.concatenate(tokens_probs)
-        imsave(join(dir_for_example, 'decoder_output.png'), decoder_output.T)
-        write_to_file(join(dir_for_example, 'autoencoded_code.hs'), example_to_code(text_so_far))
-
-
-def build_encoder(z_size, token_emb_size):
-    input_sequence = td.Map(td.Vector(token_emb_size))
-    encoder_rnn_cell = build_program_encoder(default_gru_cell(2*z_size))
-    output_sequence = td.RNN(encoder_rnn_cell) >> td.GetItem(0)
-    mus_and_log_sigs = output_sequence >> td.GetItem(-1)
-    return input_sequence >> mus_and_log_sigs
-
-
-def build_blind_decoder_block(z_size, token_emb_size):
-
-    c = td.Composition()
-    c.set_input_type(
-        td.TupleType(
-            td.TensorType((z_size,)),
-            td.SequenceType(td.TensorType((0,)))
-        )
+    # generate_bit
+    generated_examples_path = join(examples_dir, 'generated')
+    message = 'Generating {} examples'.format(
+        len(examples),
     )
-    with c.scope():
-        hidden_state = td.GetItem(0).reads(c.input)
-        list_of_nothing = td.GetItem(1).reads(c.input)
+    for i in tqdm(
+        range(NUMBER_OF_EXAMPLES), desc=message, total=len(examples)
+    ):
+        dir_for_example = join(generated_examples_path, str(i))
+        mkdir_p(dir_for_example)
 
-        decoder_output = build_program_decoder_for_analysis(
-            token_emb_size, default_gru_cell(z_size)
+        z_gen = np.random.normal(0, 0.1, z_size)
+        imsave(join(dir_for_example, 'z.png'), z_gen.reshape((z_gen.size // 32, 32)))
+        token_probs, attention_weights = sess.run(
+            [token_probs_t, attention_weights_t],
+            feed_dict={
+                decoder_input: np.expand_dims(z_gen, 0)
+            }
         )
+        token_probs = np.squeeze(token_probs)
+        tokens = np.argmax(token_probs, axis=-1)
+        end_of_code = np.argmax(tokens == 0) or sequence_cap
+        token_probs = token_probs[:end_of_code]
+        attention_weights = attention_weights[:end_of_code]
+        output_code = example_to_code(token_probs)
 
-        decoder_output.reads(list_of_nothing, hidden_state)
-        decoder_rnn_output = td.GetItem(1).reads(decoder_output)
-        un_normalised_token_probs = td.GetItem(0).reads(decoder_output)
-        # get the first output (meant to only compute one interation)
-        c.output.reads(
-            td.GetItem(0).reads(un_normalised_token_probs),
-            td.GetItem(0).reads(decoder_rnn_output)
-        )
+        visualize_attention_weights(output_code, attention_weights, join(dir_for_example, 'attention_weights'))
 
-    return td.Record((td.Vector(z_size), td.Map(td.Vector(0)))) >> c
-
-
-def build_program_decoder_for_analysis(token_emb_size, rnn_cell):
-    """
-    Does the same as build_program_decoder_for_analysis, but also returns
-        the final hidden state of the decoder
-    """
-    decoder_rnn = td.ScopedLayer(
-        rnn_cell,
-        'decoder'
-    )
-    decoder_rnn_output = td.RNN(
-        decoder_rnn,
-        initial_state_from_input=True
-    ) >> td.GetItem(0)
-
-    fc_layer = td.FC(
-        token_emb_size,
-        activation=tf.nn.relu,
-        initializer=tf.contrib.layers.xavier_initializer(),
-        name='encoder_fc'
-    )
-    # decoder_rnn_output.reads()
-    un_normalised_token_probs = td.Map(fc_layer)
-    return decoder_rnn_output >> td.AllOf(un_normalised_token_probs, td.Identity())
-
-
-def build_resampling_op(z_size):
-    mus_and_log_sigs = tf.placeholder(tf.float32, (1, 2*z_size,))
-    return mus_and_log_sigs, resampling(mus_and_log_sigs)
+        imsave(join(dir_for_example, 'decoder_output.png'), token_probs.T)
+        write_to_file(join(dir_for_example, 'generated_code.hs'), example_to_code(token_probs))
 
 
 def example_to_code(example):
@@ -216,6 +199,46 @@ def one_hot(length, value):
     return v
 
 
+def visualize_attention_weights(output_code, attention_weights, path):
+    output_code = output_code.replace('\n', '\\n')
+    tokens = output_code.split(' ')
+    tokens[-1] = '<end>'
+    look_behinds = ['z'] + tokens[:-1]
+
+    attention_weights = [x[0] for x in attention_weights]
+
+    padded_weights = []
+    for attention_weighting in attention_weights:
+        zero_padding = np.zeros(len(attention_weights) - len(attention_weighting))
+        padded = np.concatenate((attention_weighting, zero_padding))
+        padded_weights += [padded]
+
+    padded_weights = np.stack(padded_weights)
+
+    matplotlib.rc('xtick', labelsize=6)
+    matplotlib.rc('ytick', labelsize=6)
+    figure_width = (len(attention_weights) / 50) * 6
+    plt.figure(figsize=(figure_width, figure_width))
+    plt.pcolormesh(padded_weights.T)
+    plt.xticks(
+        np.arange(len(attention_weights)) + 0.5,
+        tokens,
+        rotation='vertical',
+        fontname='Monospace'
+    )
+    plt.yticks(
+        np.arange(len(attention_weights)) + 0.5,
+        look_behinds,
+        fontname='Monospace'
+    )
+    plt.savefig(
+        path + '.pdf',
+        format='pdf',
+        bbox_inches='tight'
+    )
+    plt.clf()
+
+
 # echoes the behaviour of mkdir -p
 # from http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
 def mkdir_p(path):
@@ -229,6 +252,7 @@ def mkdir_p(path):
 
 
 if __name__ == '__main__':
-    args = argv[1:]
-    assert len(args) == 1, 'must have exactly one argument'
-    analyze_model(args[0])
+    args = docopt(__doc__, version='N/A')
+    option = args.get('<option>')
+    use_basic_dataset = args.get('--basic')
+    analyze_model(option, use_basic_dataset)

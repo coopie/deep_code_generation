@@ -32,9 +32,9 @@ def run_experiment(option, use_basic_dataset):
     TOKEN_EMB_SIZE = 54
     BATCH_SIZE = 128
     if use_basic_dataset:
-        sequence_cap = 130
-    else:
         sequence_cap = 56
+    else:
+        sequence_cap = 130
 
     X_SHAPE = (sequence_cap, TOKEN_EMB_SIZE)
 
