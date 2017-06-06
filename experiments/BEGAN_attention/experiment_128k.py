@@ -154,15 +154,15 @@ def run_experiment(option, use_basic_dataset):
             k_update = tf.assign(
                 k_t, tf.clip_by_value(k_t + LAMBDA * balance, 0, 1))
 
-        example_summary_op = tf.summary.merge([
-            tf.summary.image("G", tf.expand_dims(generated_programs, -1)),
-            tf.summary.image("AE_G", tf.expand_dims(
-                tf.nn.softmax(generated_reconstructed, dim=-1), axis=-1
-            )),
-            tf.summary.image("AE_x", tf.expand_dims(
-                tf.nn.softmax(real_reconstructed, dim=-1), axis=-1
-            ))
-        ])
+        # example_summary_op = tf.summary.merge([
+        #     tf.summary.image("G", tf.expand_dims(generated_programs, -1)),
+        #     tf.summary.image("AE_G", tf.expand_dims(
+        #         tf.nn.softmax(generated_reconstructed, dim=-1), axis=-1
+        #     )),
+        #     tf.summary.image("AE_x", tf.expand_dims(
+        #         tf.nn.softmax(real_reconstructed, dim=-1), axis=-1
+        #     ))
+        # ])
 
         perf_summary_op = tf.summary.merge([
             tf.summary.scalar("loss/discriminator_loss", discriminator_loss),
@@ -242,17 +242,17 @@ def run_experiment(option, use_basic_dataset):
                 'g_train_op': g_train_op,
                 'global_step': sv.global_step
             }
-            if global_step % 200 == 0:
-                ops.update({'images': example_summary_op})
+            # if global_step % 200 == 0:
+                # ops.update({'images': example_summary_op})
 
             results = sess.run(ops)
 
-            if global_step % 200 == 0:
-                images_summary = results['images']
-                global_step = results['global_step']
-                sv.summary_writer.add_summary(images_summary, global_step)
-
-            global_step = results['global_step']
+            # if global_step % 200 == 0:
+            #     images_summary = results['images']
+            #     global_step = results['global_step']
+            #     sv.summary_writer.add_summary(images_summary, global_step)
+            #
+            # global_step = results['global_step']
 
 
 # echoes the behaviour of mkdir -p
