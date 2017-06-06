@@ -44,69 +44,27 @@ from models import (  # NOQA
     build_special_conv2_encoder,
     build_special_conv2_decoder,
     build_special_conv4_encoder,
-    build_special_conv4_decoder
+    build_special_conv4_decoder,
+    conv_arg_scope_final
 )
 
 
 BASEDIR = 'experiments/VAE_baseline/'
 
-NUMBER_OF_EXAMPLES = 10
+NUMBER_OF_EXAMPLES = 1000
 
 def analyze_model(option, use_basic_dataset):
-    # if option == 'simple':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple()
-    # elif option == 'conv1':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv1()
-    # elif option == 'conv2':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv2()
-    # elif option == 'conv3':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv3()
-    # elif option == 'conv4':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_conv4()
-    # elif option == 'simple_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss()
-    # elif option == 'simple_double_latent_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(64)
-    # elif option == 'simple_256_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
-    # elif option == 'simple_256_1k':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(256)
-    # elif option == 'simple_1024_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    # elif option == 'simple_1024_10k':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    # elif option == 'simple_1024_1k':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    # elif option == 'simple_1024_no_limit_1k':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(1024)
-    # elif option == 'simple_8192_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_simple_sss(8192)
-    # elif option == 'conv_special_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
-    # elif option == 'conv_special_low_kl_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv()
-    # elif option == 'conv_special2_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2()
-    # elif option == 'conv_special2_l1_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv2_l1()
-    # elif option == 'conv_special3_l1_128_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(128)
-    # elif option == 'conv_special3_l1_256_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(256)
-    # elif option == 'conv_special3_big_l1_512_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv3_l1(
-    #         512, filter_length=10
-    #     )
-    # elif option == 'conv_special4_l1_1024_sss':
-    #     data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output = make_special_conv4_l1(
-    #         1024, filter_length=3, num_filters=256
-    #     )
-    # else:
     sequence_cap = 56 if use_basic_dataset else 130
 
     if option.startswith('simple'):
         z_size = int(option.split('_')[1])
         _, encoder_input, encoder_output, decoder_input, decoder_output = make_simple(z_size, sequence_cap)
+    elif option == 'conv':
+        z_size = 128
+        _, encoder_input, encoder_output, decoder_input, decoder_output = make_conv_final(
+            z_size,
+            sequence_cap
+        )
     else:
         print('INVALID OPTION {}'.format(option))
         exit()
@@ -149,9 +107,8 @@ def analyze_model(option, use_basic_dataset):
 
         def e(example_data=None):
             if example_data is None:
-                key = str(randint(0, 100000000))
-                example_data = data_pipeline[key]
-            example_data = np.reshape(example_data, (1, *example_data.shape))
+                example_data = dataset()[0]
+            example_data = np.expand_dims(example_data, 0)
             encoded = sess.run(
                 encoder_output,
                 feed_dict={
@@ -160,22 +117,23 @@ def analyze_model(option, use_basic_dataset):
             )
             return encoded, example_data
 
-        examples_dir = BASEDIR + '{}_examples'.format(option)
+        examples_dir = BASEDIR + '{}{}_examples'.format(
+            'basic_' if use_basic_dataset else '',
+            option
+        )
         latent_sampling_dir = examples_dir + '/generated/'
         autoencoded_dir = examples_dir + '/autoencoded/'
-        # markov_generating_dir = examples_dir + '/markov_generating/'
 
         mkdir_p(examples_dir)
         mkdir_p(latent_sampling_dir)
         mkdir_p(autoencoded_dir)
-        mkdir_p(markov_generating_dir)
 
         #  Autoencode bit
 
         for i in trange(NUMBER_OF_EXAMPLES):
             dir_for_example = os.path.join(autoencoded_dir, str(i))
             mkdir_p(dir_for_example)
-            example_input = data_pipeline[str(i)].astype('float32')
+            example_input = np.squeeze(dataset()[0], 0)
             input_text = example_to_code(example_input)
 
             latent_rep, _ = e(example_input)
@@ -187,14 +145,34 @@ def analyze_model(option, use_basic_dataset):
                 latent_image
             )
             reconstrcted_tokens, _ = g(latent_rep)
+            reconstrcted_tokens = np.squeeze(reconstrcted_tokens, 0)
             autoencoded_text = example_to_code(reconstrcted_tokens)
-            imsave(dir_for_example + '/input.png', example_input.T)
+            imsave(dir_for_example + '/input.png', example_input.astype('float32').T)
             imsave(dir_for_example + '/decoder_output.png', reconstrcted_tokens.T)
 
             with open(dir_for_example + '/input.hs', 'w') as f:
                 f.write(input_text)
 
             with open(dir_for_example + '/autoencoded_code.hs', 'w') as f:
+                f.write(autoencoded_text)
+
+        #  generate bit
+
+        for i in trange(NUMBER_OF_EXAMPLES):
+            dir_for_example = os.path.join(latent_sampling_dir, str(i))
+            mkdir_p(dir_for_example)
+
+            reconstrcted_tokens, latent_rep = g()
+            latent_image = latent_rep.reshape((latent_rep.size // 32, 32))
+            imsave(
+                dir_for_example + '/{}_latent.png'.format(i),
+                latent_image
+            )
+            reconstrcted_tokens = np.squeeze(reconstrcted_tokens, 0)
+            autoencoded_text = example_to_code(reconstrcted_tokens)
+            imsave(dir_for_example + '/decoder_output.png', reconstrcted_tokens.T)
+
+            with open(dir_for_example + '/generated_code.hs', 'w') as f:
                 f.write(autoencoded_text)
 
 
@@ -316,6 +294,30 @@ def make_conv4():
         decoder_output = tf.reshape(decoder_output, x_shape)
 
     return data_pipeline, encoder_input, encoder_output, decoder_input, decoder_output
+
+
+def make_conv_final(z_size, sequence_cap):
+    latent_dim = z_size
+    x_shape = (sequence_cap, 54)
+
+    filter_length = 3
+    num_filters = 128
+
+    with conv_arg_scope_final():
+        decoder_input = tf.placeholder(tf.float32, shape=(1, latent_dim), name='decoder_input')
+        encoder_input = tf.placeholder(tf.float32, shape=(1, *x_shape), name='encoder_input')
+
+        encoder_output, z_log_sigmas, dense_layer_size = build_special_conv4_encoder(
+            encoder_input, latent_dim, num_filters, filter_length
+        )
+
+        decoder_output = build_special_conv4_decoder(
+            decoder_input, x_shape, num_filters, filter_length, dense_layer_size
+        )
+
+        decoder_output = tf.nn.softmax(decoder_output, dim=-1)
+
+    return None, encoder_input, encoder_output, decoder_input, decoder_output
 
 
 def make_simple_sss(latent_dim=32):

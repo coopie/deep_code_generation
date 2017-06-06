@@ -26,8 +26,10 @@ def resampling(mus_and_log_sigs):
     return z_resampled
 
 
-def get_sequence_lengths(x):
+def get_sequence_lengths(x, epsilon=0):
     is_padding = x[:, :, 0]
+    if epsilon != 0:
+        is_padding = tf.cast(is_padding < epsilon, tf.int32)
     return (x.get_shape()[1].value - tf.reduce_sum(is_padding, axis=1)) + 1
 
 

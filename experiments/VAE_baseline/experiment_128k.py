@@ -21,7 +21,7 @@ import project_context  # NOQA
 from pipelines.data_sources import BASIC_DATASET_ARGS
 from pipelines.one_hot_token import one_hot_token_random_batcher
 from model_utils.queues import build_single_output_queue
-from models import build_simple_network2
+from models import build_simple_network2, build_special_conv4_final
 
 import tensorflow as tf
 from tensorflow.python.training.supervisor import Supervisor
@@ -58,13 +58,17 @@ def run_experiment(option, use_basic_dataset):
         output_shape=(BATCH_SIZE, sequence_cap, TOKEN_EMB_SIZE),
         type=tf.uint8
     )
-
     raw_input_sequences = queue.dequeue(name='encoder_input')
     input_sequences = tf.cast(raw_input_sequences, tf.float32)
     if option.startswith('simple_'):
         z_size = int(option.split('_')[-1])
         build_simple_network2(
             input_sequences, X_SHAPE, latent_dim=z_size, kl_limit=0.0
+        )
+    elif option == 'conv':
+        z_size = 128
+        build_special_conv4_final(
+            input_sequences, X_SHAPE, z_size, filter_length=3, num_filters=128,
         )
     else:
         print('INVALID OPTION')
