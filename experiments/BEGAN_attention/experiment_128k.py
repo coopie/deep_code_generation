@@ -155,7 +155,7 @@ def run_experiment(option, use_basic_dataset):
                 k_t, tf.clip_by_value(k_t + LAMBDA * balance, 0, 1))
 
         example_summary_op = tf.summary.merge([
-            tf.summary.image("G", generated_programs),
+            tf.summary.image("G", tf.expand_dims(generated_programs, -1)),
             tf.summary.image("AE_G", tf.expand_dims(
                 tf.nn.softmax(generated_reconstructed, dim=-1), axis=-1
             )),
