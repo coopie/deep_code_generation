@@ -13,7 +13,7 @@ Options:
 
 import os
 from docopt import docopt
-
+import errno
 import logging
 import project_context  # NOQA
 from pipelines.one_hot_token import one_hot_token_random_batcher
@@ -43,6 +43,8 @@ GAMMA = 0.5
 
 
 def run_experiment(option, use_basic_dataset):
+    assert os.path.isdir(os.path.join(BASEDIR, 'pretrained_weights')), 'weights files are missing'
+
     sequence_cap = 56 if use_basic_dataset else 130
     print('Setting up data pipeline...')
 
@@ -139,7 +141,7 @@ def run_experiment(option, use_basic_dataset):
         optimizer = tf.train.AdamOptimizer(1e-5)
         print('creating discriminator train op...')
         d_train_op = slim.learning.create_train_op(discriminator_loss, optimizer)
-        print('starting supervisor...')
+
         optimizer = tf.train.AdamOptimizer(1e-5)
         print('creating generator train op...')
         g_train_op = slim.learning.create_train_op(generator_loss, optimizer)
@@ -154,14 +156,18 @@ def run_experiment(option, use_basic_dataset):
 
         example_summary_op = tf.summary.merge([
             tf.summary.image("G", generated_programs),
-            tf.summary.image("AE_G", tf.nn.softmax(generated_reconstructed, dim=-1)),
-            tf.summary.image("AE_x", tf.nn.softmax(real_reconstructed, dim=-1)),
+            tf.summary.image("AE_G", tf.expand_dims(
+                tf.nn.softmax(generated_reconstructed, dim=-1), axis=-1
+            )),
+            tf.summary.image("AE_x", tf.expand_dims(
+                tf.nn.softmax(real_reconstructed, dim=-1), axis=-1
+            ))
         ])
 
         perf_summary_op = tf.summary.merge([
-            tf.summary.scalar("loss/d_loss", discriminator_loss),
-            tf.summary.scalar("loss/d_loss_real", real_loss),
-            tf.summary.scalar("loss/d_loss_fake", generator_loss),
+            tf.summary.scalar("loss/discriminator_loss", discriminator_loss),
+            tf.summary.scalar("loss/real_loss", real_loss),
+            tf.summary.scalar("loss/generator_loss", generator_loss),
             tf.summary.scalar("misc/measure", measure),
             tf.summary.scalar("misc/k_t", k_t),
             tf.summary.scalar("misc/balance", balance),
@@ -171,8 +177,53 @@ def run_experiment(option, use_basic_dataset):
         print('INVALID OPTION')
         exit(1)
 
-    logdir = os.path.join(BASEDIR, ('basic_' if use_basic_dataset else '') + option)
+    logdir = os.path.join(BASEDIR, ('basic_' if use_basic_dataset else '') + option + '_gan')
 
+    # build the model and initialise weights so supervisor can start where we left off
+    if not os.path.isdir(logdir):
+        mkdir_p(logdir)
+        with tf.Session() as sess:
+            print('saving initial pretrained weights')
+            with tf.variable_scope('', reuse=True):
+                discriminator_vars = [
+                    tf.get_variable('discriminator/decoder_fully_connected/bias'),
+                    tf.get_variable('discriminator/decoder_fully_connected/weights'),
+                    tf.get_variable('discriminator/decoder_rnn/lstm_cell/biases'),
+                    tf.get_variable('discriminator/decoder_rnn/lstm_cell/weights'),
+                    tf.get_variable('discriminator/rnn/lstm_cell/biases'),
+                    tf.get_variable('discriminator/rnn/lstm_cell/weights'),
+                    tf.get_variable('discriminator/simple_attention/bias'),
+                    tf.get_variable('discriminator/simple_attention/weights'),
+                ]
+                generator_vars = [
+                    tf.get_variable('generator/decoder_fully_connected/bias'),
+                    tf.get_variable('generator/decoder_fully_connected/weights'),
+                    tf.get_variable('generator/decoder_rnn/lstm_cell/biases'),
+                    tf.get_variable('generator/decoder_rnn/lstm_cell/weights'),
+                    tf.get_variable('generator/simple_attention/bias'),
+                    tf.get_variable('generator/simple_attention/weights'),
+                ]
+
+            discriminator_saver = tf.train.Saver(
+                discriminator_vars
+            )
+            generator_saver = tf.train.Saver(
+                generator_vars
+            )
+            sess.run(tf.global_variables_initializer())
+            discriminator_saver.restore(
+                sess,
+                os.path.join(BASEDIR, 'pretrained_weights', 'discriminator_weights.cpkt')
+            )
+            generator_saver.restore(
+                sess,
+                os.path.join(BASEDIR, 'pretrained_weights', 'generator_weights.cpkt')
+            )
+
+            saver = tf.train.Saver()
+            saver.save(sess, os.path.join(logdir, 'model.cpkt-0'))
+
+    print('starting supervisor...')
     sv = Supervisor(
         logdir=logdir,
         save_model_secs=300,
@@ -181,9 +232,9 @@ def run_experiment(option, use_basic_dataset):
     )
     print('training...')
     with sv.managed_session() as sess:
-        i = 1
+
+        global_step = -1
         while not sv.should_stop():
-            i += 1
             ops = {
                 'k_update': k_update,
                 'measure': measure,
@@ -191,15 +242,29 @@ def run_experiment(option, use_basic_dataset):
                 'g_train_op': g_train_op,
                 'global_step': sv.global_step
             }
-            if i % 200 == 0:
+            if global_step % 200 == 0:
                 ops.update({'images': example_summary_op})
 
             results = sess.run(ops)
 
-            if i % 200 == 0:
+            if global_step % 200 == 0:
                 images_summary = results['images']
                 global_step = results['global_step']
                 sv.summary_writer.add_summary(images_summary, global_step)
+
+            global_step = results['global_step']
+
+
+# echoes the behaviour of mkdir -p
+# from http://stackoverflow.com/questions/600268/mkdir-p-functionality-in-python
+def mkdir_p(path):
+    try:
+        os.makedirs(path)
+    except OSError as exc:
+        if exc.errno == errno.EEXIST and os.path.isdir(path):
+            pass
+        else:
+            raise
 
 
 if __name__ == '__main__':
