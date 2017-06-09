@@ -72,7 +72,7 @@ def run_experiment(option, use_basic_dataset):
     real_input_sequences = tf.cast(raw_input_sequences, tf.float32)
 
     print('Building model..')
-    if option.startswith('attention1'):
+    if option.startswith('attention1_gan_no_pretrain'):
         z_size = int(option.split('_')[-1])
 
         random_vector = tf.random_normal(
@@ -180,48 +180,48 @@ def run_experiment(option, use_basic_dataset):
     logdir = os.path.join(BASEDIR, ('basic_' if use_basic_dataset else '') + option + '_gan')
 
     # build the model and initialise weights so supervisor can start where we left off
-    if not os.path.isdir(logdir):
-        mkdir_p(logdir)
-        with tf.Session() as sess:
-            print('saving initial pretrained weights')
-            with tf.variable_scope('', reuse=True):
-                discriminator_vars = [
-                    tf.get_variable('discriminator/decoder_fully_connected/bias'),
-                    tf.get_variable('discriminator/decoder_fully_connected/weights'),
-                    tf.get_variable('discriminator/decoder_rnn/lstm_cell/biases'),
-                    tf.get_variable('discriminator/decoder_rnn/lstm_cell/weights'),
-                    tf.get_variable('discriminator/rnn/lstm_cell/biases'),
-                    tf.get_variable('discriminator/rnn/lstm_cell/weights'),
-                    tf.get_variable('discriminator/simple_attention/bias'),
-                    tf.get_variable('discriminator/simple_attention/weights'),
-                ]
-                generator_vars = [
-                    tf.get_variable('generator/decoder_fully_connected/bias'),
-                    tf.get_variable('generator/decoder_fully_connected/weights'),
-                    tf.get_variable('generator/decoder_rnn/lstm_cell/biases'),
-                    tf.get_variable('generator/decoder_rnn/lstm_cell/weights'),
-                    tf.get_variable('generator/simple_attention/bias'),
-                    tf.get_variable('generator/simple_attention/weights'),
-                ]
-
-            discriminator_saver = tf.train.Saver(
-                discriminator_vars
-            )
-            generator_saver = tf.train.Saver(
-                generator_vars
-            )
-            sess.run(tf.global_variables_initializer())
-            discriminator_saver.restore(
-                sess,
-                os.path.join(BASEDIR, 'pretrained_weights', 'discriminator_weights.cpkt')
-            )
-            generator_saver.restore(
-                sess,
-                os.path.join(BASEDIR, 'pretrained_weights', 'generator_weights.cpkt')
-            )
-
-            saver = tf.train.Saver()
-            saver.save(sess, os.path.join(logdir, 'model.cpkt-0'))
+    # if not os.path.isdir(logdir):
+    #     mkdir_p(logdir)
+    #     with tf.Session() as sess:
+    #         print('saving initial pretrained weights')
+    #         with tf.variable_scope('', reuse=True):
+    #             discriminator_vars = [
+    #                 tf.get_variable('discriminator/decoder_fully_connected/bias'),
+    #                 tf.get_variable('discriminator/decoder_fully_connected/weights'),
+    #                 tf.get_variable('discriminator/decoder_rnn/lstm_cell/biases'),
+    #                 tf.get_variable('discriminator/decoder_rnn/lstm_cell/weights'),
+    #                 tf.get_variable('discriminator/rnn/lstm_cell/biases'),
+    #                 tf.get_variable('discriminator/rnn/lstm_cell/weights'),
+    #                 tf.get_variable('discriminator/simple_attention/bias'),
+    #                 tf.get_variable('discriminator/simple_attention/weights'),
+    #             ]
+    #             generator_vars = [
+    #                 tf.get_variable('generator/decoder_fully_connected/bias'),
+    #                 tf.get_variable('generator/decoder_fully_connected/weights'),
+    #                 tf.get_variable('generator/decoder_rnn/lstm_cell/biases'),
+    #                 tf.get_variable('generator/decoder_rnn/lstm_cell/weights'),
+    #                 tf.get_variable('generator/simple_attention/bias'),
+    #                 tf.get_variable('generator/simple_attention/weights'),
+    #             ]
+    #
+    #         discriminator_saver = tf.train.Saver(
+    #             discriminator_vars
+    #         )
+    #         generator_saver = tf.train.Saver(
+    #             generator_vars
+    #         )
+    #         sess.run(tf.global_variables_initializer())
+    #         discriminator_saver.restore(
+    #             sess,
+    #             os.path.join(BASEDIR, 'pretrained_weights', 'discriminator_weights.cpkt')
+    #         )
+    #         generator_saver.restore(
+    #             sess,
+    #             os.path.join(BASEDIR, 'pretrained_weights', 'generator_weights.cpkt')
+    #         )
+    #
+    #         saver = tf.train.Saver()
+    #         saver.save(sess, os.path.join(logdir, 'model.cpkt-0'))
 
     print('starting supervisor...')
     sv = Supervisor(

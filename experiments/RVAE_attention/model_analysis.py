@@ -34,7 +34,8 @@ from models import (
 
 
 def analyze_model(option, use_basic_dataset):
-    BASEDIR = os.path.dirname(os.path.realpath(__file__))
+    # BASEDIR = os.path.dirname(os.path.realpath(__file__))
+    BASEDIR = 'experiments/RVAE_attention'
     sequence_cap = 56 if use_basic_dataset else 130
     TOKEN_EMB_SIZE = 54
     NUMBER_OF_EXAMPLES = 1000

@@ -24,11 +24,11 @@ import matplotlib.pyplot as plt
 import matplotlib
 
 import project_context  # NOQA
-from pipelines.data_sources import BASIC_DATASET_ARGS
-from pipelines.one_hot_token import one_hot_token_dataset
-from model_utils.ops import get_sequence_lengths
+# from pipelines.data_sources import BASIC_DATASET_ARGS
+# from pipelines.one_hot_token import one_hot_token_dataset
+# from model_utils.ops import get_sequence_lengths
 from models import (
-    build_single_program_encoder,
+    # build_single_program_encoder,
     build_attention1_decoder
 )
 
@@ -39,118 +39,121 @@ def analyze_model(option, use_basic_dataset):
     TOKEN_EMB_SIZE = 54
     NUMBER_OF_EXAMPLES = 1000
 
-    if option.startswith('attention1'):
+    if option.startswith('attention1_gan'):
         z_size = int(option.split('_')[-1])
         directory = '{}{}'.format(
             'basic_' if use_basic_dataset else '',
             option
         )
-        input_sequence_t = tf.placeholder(
-            shape=[1, sequence_cap, TOKEN_EMB_SIZE],
-            dtype=tf.float32,
-            name='input_sequence'
-        )
-        sequence_lengths_t = get_sequence_lengths(
-            tf.cast(input_sequence_t, tf.int32)
-        )
-        mus_and_log_sigs = build_single_program_encoder(
-            input_sequence_t,
-            sequence_lengths_t,
-            z_size
-        )
-        z = mus_and_log_sigs[:, :z_size]
+        # input_sequence_t = tf.placeholder(
+        #     shape=[1, sequence_cap, TOKEN_EMB_SIZE],
+        #     dtype=tf.float32,
+        #     name='input_sequence'
+        # )
+        # sequence_lengths_t = get_sequence_lengths(
+        #     tf.cast(input_sequence_t, tf.int32)
+        # )
+        # mus_and_log_sigs = build_single_program_encoder(
+        #     input_sequence_t,
+        #     sequence_lengths_t,
+        #     z_size
+        # )
+        # z = mus_and_log_sigs[:, :z_size]
         decoder_input = tf.placeholder(
             shape=[1, z_size],
             dtype=tf.float32,
-            name='decoder_input'
+            name='generator_input'
         )
-        decoder_output, attention_weights_t = build_attention1_decoder(
-            decoder_input,
-            sequence_lengths_t,
-            sequence_cap,
-            TOKEN_EMB_SIZE
-        )
+        sequence_lengths_t = tf.constant([sequence_cap])
+        with tf.variable_scope('generator'):
+            decoder_output, attention_weights_t = build_attention1_decoder(
+                decoder_input,
+                sequence_lengths_t,
+                sequence_cap,
+                TOKEN_EMB_SIZE
+            )
         token_probs_t = tf.nn.softmax(decoder_output)
 
         print('z_size={}'.format(z_size))
     else:
         exit('invalid option')
 
-    huzzer_kwargs = BASIC_DATASET_ARGS if use_basic_dataset else {}
+    # huzzer_kwargs = BASIC_DATASET_ARGS if use_basic_dataset else {}
 
-    print('Setting up data pipeline...')
-    dataset = one_hot_token_dataset(
-        batch_size=1,
-        number_of_batches=1000,
-        cache_path='{}model_analysis_attention'.format(
-            'basic_' if use_basic_dataset else ''
-        ),
-        length=sequence_cap,
-        huzzer_kwargs=huzzer_kwargs
-    )
-
-    def get_input():
-        return np.squeeze(dataset()[0], axis=0).astype(np.float32)
+    # print('Setting up data pipeline...')
+    # dataset = one_hot_token_dataset(
+    #     batch_size=1,
+    #     number_of_batches=1000,
+    #     cache_path='{}model_analysis_attention'.format(
+    #         'basic_' if use_basic_dataset else ''
+    #     ),
+    #     length=sequence_cap,
+    #     huzzer_kwargs=huzzer_kwargs
+    # )
+    #
+    # def get_input():
+    #     return np.squeeze(dataset()[0], axis=0).astype(np.float32)
 
     path = join(BASEDIR, directory)
 
     saver = tf.train.Saver()
 
-    examples = [get_input() for i in range(NUMBER_OF_EXAMPLES)]
+    # examples = [get_input() for i in range(NUMBER_OF_EXAMPLES)]
 
     sess = tf.Session()
     print('Restoring variables...')
+
     saver.restore(
         sess, tf.train.latest_checkpoint(path, 'checkpoint.txt')
     )
     examples_dir = join(BASEDIR, ('basic_' if use_basic_dataset else '') + option + '_examples')
     mkdir_p(examples_dir)
 
-    # Autoencode_bit
-    autoencoded_examples_path = join(examples_dir, 'autoencoded')
-    message = 'Autencoding {} examples'.format(
-        len(examples),
-    )
-    for i, input_sequence in enumerate(tqdm(
-        examples, desc=message, total=len(examples)
-    )):
-        dir_for_example = join(autoencoded_examples_path, str(i))
-        mkdir_p(dir_for_example)
-
-        z_mus, length = sess.run([z, sequence_lengths_t], feed_dict={
-            input_sequence_t: np.expand_dims(input_sequence, 0),
-        })
-
-        token_probs, attention_weights = sess.run(
-            [token_probs_t, attention_weights_t],
-            feed_dict={
-                decoder_input: z_mus
-            }
-        )
-        length = np.squeeze(length)
-        token_probs = np.squeeze(token_probs)[:length]
-        attention_weights = attention_weights[:length]
-        input_sequence = input_sequence[:length]
-
-        input_code = example_to_code(input_sequence)
-        output_code = example_to_code(token_probs)
-        visualize_attention_weights(output_code, attention_weights, join(dir_for_example, 'attention_weights'))
-
-        input_code = example_to_code(input_sequence)
-        write_to_file(join(dir_for_example, 'input.hs'), input_code)
-        imsave(join(dir_for_example, 'input.png'), input_sequence.T)
-        imsave(join(dir_for_example, 'z.png'), z_mus.reshape((z_mus.size // 32, 32)))
-
-        imsave(join(dir_for_example, 'decoder_output.png'), token_probs.T)
-        write_to_file(join(dir_for_example, 'autoencoded_code.hs'), output_code)
+    # # Autoencode_bit
+    # autoencoded_examples_path = join(examples_dir, 'autoencoded')
+    # message = 'Autencoding {} examples'.format(
+    #     len(examples),
+    # )
+    # for i, input_sequence in enumerate(tqdm(
+    #     examples, desc=message, total=len(examples)
+    # )):
+    #     dir_for_example = join(autoencoded_examples_path, str(i))
+    #     mkdir_p(dir_for_example)
+    #
+    #     z_mus, length = sess.run([z, sequence_lengths_t], feed_dict={
+    #         input_sequence_t: np.expand_dims(input_sequence, 0),
+    #     })
+    #
+    #     token_probs, attention_weights = sess.run(
+    #         [token_probs_t, attention_weights_t],
+    #         feed_dict={
+    #             decoder_input: z_mus
+    #         }
+    #     )
+    #     length = np.squeeze(length)
+    #     token_probs = np.squeeze(token_probs)[:length]
+    #     attention_weights = attention_weights[:length]
+    #     input_sequence = input_sequence[:length]
+    #
+    #     input_code = example_to_code(input_sequence)
+    #     output_code = example_to_code(token_probs)
+    #     visualize_attention_weights(output_code, attention_weights, join(dir_for_example, 'attention_weights'))
+    #
+    #     input_code = example_to_code(input_sequence)
+    #     write_to_file(join(dir_for_example, 'input.hs'), input_code)
+    #     imsave(join(dir_for_example, 'input.png'), input_sequence.T)
+    #     imsave(join(dir_for_example, 'z.png'), z_mus.reshape((z_mus.size // 32, 32)))
+    #
+    #     imsave(join(dir_for_example, 'decoder_output.png'), token_probs.T)
+    #     write_to_file(join(dir_for_example, 'autoencoded_code.hs'), output_code)
 
     # generate_bit
     generated_examples_path = join(examples_dir, 'generated')
     message = 'Generating {} examples'.format(
-        len(examples),
+        NUMBER_OF_EXAMPLES,
     )
     for i in tqdm(
-        range(NUMBER_OF_EXAMPLES), desc=message, total=len(examples)
+        range(NUMBER_OF_EXAMPLES), desc=message, total=NUMBER_OF_EXAMPLES
     ):
         dir_for_example = join(generated_examples_path, str(i))
         mkdir_p(dir_for_example)
