@@ -72,7 +72,7 @@ def run_experiment(option, use_basic_dataset):
         z_size = int(option.split('_')[-1])
         encoder_output = build_single_program_encoder(input_sequences, sequence_lengths, z_size)
         z_resampled = resampling(encoder_output)
-        decoder_output = build_attention1_decoder(
+        decoder_output, _ = build_attention1_decoder(
             z_resampled, sequence_lengths, sequence_cap, TOKEN_EMB_SIZE
         )
         cross_entropy_loss = tf.reduce_mean(
